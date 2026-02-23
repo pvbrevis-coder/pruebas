@@ -65,11 +65,8 @@ def formato_latino(numero, decimales=1):
 # ==========================================
 # RENDERIZADOR AVANZADO MERMAID
 # ==========================================
-def render_mermaid(code: str, node_data: dict = None):
-    import json as _json
+def render_mermaid(code: str):
     b64_code = base64.b64encode(code.encode('utf-8')).decode('utf-8')
-    # Serializar datos de nodos para el popup; {} si no se pasan
-    node_data_js = _json.dumps(node_data or {}, ensure_ascii=False)
     
     html_content = f"""
     <!DOCTYPE html>
@@ -97,118 +94,12 @@ def render_mermaid(code: str, node_data: dict = None):
                 line-height: 1.6 !important;
                 white-space: nowrap !important;
             }}
-
-            /* ── Modal overlay ── */
-            #nodeModal {{
-                display: none;
-                position: fixed;
-                top: 0; left: 0; width: 100%; height: 100%;
-                background: rgba(0,0,0,0.45);
-                z-index: 9999999;
-                justify-content: center;
-                align-items: center;
-            }}
-            #nodeModal.open {{ display: flex; }}
-            #modalBox {{
-                background: #fff;
-                border-radius: 10px;
-                box-shadow: 0 8px 32px rgba(0,0,0,0.25);
-                width: 700px;
-                max-width: 95vw;
-                max-height: 80vh;
-                display: flex;
-                flex-direction: column;
-                font-family: Arial, sans-serif;
-                overflow: hidden;
-            }}
-            #modalHeader {{
-                background: #1f2937;
-                color: #fff;
-                padding: 14px 20px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                flex-shrink: 0;
-            }}
-            #modalTitle {{ font-size: 15px; font-weight: bold; margin: 0; }}
-            #modalSubtitle {{ font-size: 12px; color: #9ca3af; margin: 2px 0 0 0; }}
-            #modalClose {{
-                background: none; border: none; color: #fff;
-                font-size: 22px; cursor: pointer; line-height: 1;
-                padding: 0 4px;
-            }}
-            #modalClose:hover {{ color: #f87171; }}
-            #modalBody {{
-                overflow-y: auto;
-                flex: 1;
-                padding: 0;
-            }}
-            #modalTable {{
-                width: 100%; border-collapse: collapse;
-                font-size: 13px;
-            }}
-            #modalTable thead th {{
-                background: #f8f9fa;
-                border-bottom: 2px solid #dee2e6;
-                padding: 10px 14px;
-                text-align: left;
-                font-weight: bold;
-                color: #374151;
-                position: sticky;
-                top: 0;
-                z-index: 10;
-            }}
-            #modalTable tbody td {{
-                padding: 8px 14px;
-                border-bottom: 1px solid #f0f0f0;
-                color: #374151;
-            }}
-            #modalTable tbody tr:hover {{ background: #f9fafb; }}
-            #modalFooter {{
-                padding: 10px 20px;
-                font-size: 12px;
-                color: #6b7280;
-                border-top: 1px solid #e5e7eb;
-                flex-shrink: 0;
-                background: #fafafa;
-            }}
         </style>
     </head>
     <body>
         <div id="graphDiv">Generando mapa de proceso...</div>
-
-        <!-- Modal popup -->
-        <div id="nodeModal">
-            <div id="modalBox">
-                <div id="modalHeader">
-                    <div>
-                        <p id="modalTitle">Etapa</p>
-                        <p id="modalSubtitle"></p>
-                    </div>
-                    <button id="modalClose" title="Cerrar">✕</button>
-                </div>
-                <div id="modalBody">
-                    <table id="modalTable">
-                        <thead>
-                            <tr>
-                                <th>ID Caso</th>
-                                <th>Fecha de ingreso</th>
-                                <th>Recurso</th>
-                                <th>Días en etapa</th>
-                            </tr>
-                        </thead>
-                        <tbody id="modalTableBody"></tbody>
-                    </table>
-                </div>
-                <div id="modalFooter" id="modalFooter"></div>
-            </div>
-        </div>
-
         <script type="module">
             window.noAction = function() {{ return false; }};
-
-            // Datos de casos por etapa (inyectados desde Python)
-            const NODE_DATA = {node_data_js};
             
             import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
             
@@ -220,47 +111,6 @@ def render_mermaid(code: str, node_data: dict = None):
                 flowchart: {{ arrowMarkerAbsolute: true }}
             }});
             
-            // ── Lógica del modal ──────────────────────────────────────
-            const modal   = document.getElementById('nodeModal');
-            const mTitle  = document.getElementById('modalTitle');
-            const mSub    = document.getElementById('modalSubtitle');
-            const mBody   = document.getElementById('modalTableBody');
-            const mFooter = document.getElementById('modalFooter');
-            const mClose  = document.getElementById('modalClose');
-
-            function openModal(stateName) {{
-                const rows = NODE_DATA[stateName];
-                if (!rows || rows.length === 0) return;
-
-                mTitle.textContent = stateName;
-                mSub.textContent   = rows.length + ' caso' + (rows.length !== 1 ? 's' : '') + ' pasan por esta etapa';
-                mFooter.textContent = rows.length > 50
-                    ? 'Mostrando todos los ' + rows.length + ' registros. Desplázate para ver más.'
-                    : rows.length + ' registro' + (rows.length !== 1 ? 's' : '') + ' en total.';
-
-                mBody.innerHTML = '';
-                rows.forEach(function(r) {{
-                    var tr = document.createElement('tr');
-                    tr.innerHTML =
-                        '<td>' + (r.id   || '—') + '</td>' +
-                        '<td>' + (r.fecha || '—') + '</td>' +
-                        '<td>' + (r.recurso || '—') + '</td>' +
-                        '<td style="text-align:center;">' + (r.duracion !== undefined ? r.duracion : '—') + '</td>';
-                    mBody.appendChild(tr);
-                }});
-
-                modal.classList.add('open');
-            }}
-
-            mClose.addEventListener('click', function() {{ modal.classList.remove('open'); }});
-            modal.addEventListener('click', function(e) {{
-                if (e.target === modal) modal.classList.remove('open');
-            }});
-            document.addEventListener('keydown', function(e) {{
-                if (e.key === 'Escape') modal.classList.remove('open');
-            }});
-
-            // ── Renderizado Mermaid + listeners ──────────────────────
             try {{
                 const b64 = "{b64_code}";
                 const graphDefinition = decodeURIComponent(escape(window.atob(b64)));
@@ -270,28 +120,6 @@ def render_mermaid(code: str, node_data: dict = None):
                     if(result.bindFunctions) {{
                         result.bindFunctions(document.getElementById('graphDiv'));
                     }}
-
-                    // Añadir doble clic a todos los nodos (excepto Inicio/Fin)
-                    var EXCLUIDOS = ['Inicio proceso', 'Fin proceso'];
-                    document.querySelectorAll('.node').forEach(function(nodeEl) {{
-                        // Extraer texto del nodo (Mermaid usa <span> o <p> dentro de foreignObject)
-                        var labelEl = nodeEl.querySelector('span') || nodeEl.querySelector('p') || nodeEl.querySelector('text');
-                        if (!labelEl) return;
-                        var label = labelEl.textContent.trim();
-                        if (EXCLUIDOS.indexOf(label) !== -1) return;
-                        if (!NODE_DATA[label]) return;
-
-                        nodeEl.style.cursor = 'pointer';
-
-                        // Indicador visual de que el nodo es interactivo
-                        nodeEl.title = 'Doble clic para ver casos';
-
-                        nodeEl.addEventListener('dblclick', function(e) {{
-                            e.stopPropagation();
-                            openModal(label);
-                        }});
-                    }});
-
                 }}).catch((error) => {{
                     document.getElementById('graphDiv').innerHTML = "<div style='color:red;'><b>Error de renderizado:</b><br>" + error.message + "</div>";
                 }});
@@ -314,13 +142,14 @@ def render_mermaid(code: str, node_data: dict = None):
                     if (strokeColor && strokeColor !== 'none') {{
                         var markerId = path.getAttribute('marker-end');
                         if (markerId && !markerId.includes('_custom_')) {{
-                            var id = markerId.replace('url(', '').replace(')', '').replace(/["\']/g, '');
+                            var id = markerId.replace('url(', '').replace(')', '').replace(/["']/g, '');
                             if (id.includes('#')) id = id.substring(id.indexOf('#'));
                             var marker = document.querySelector(id);
                             if (marker) {{
                                 var colorSafe = strokeColor.replace(/[^a-zA-Z0-9]/g, '');
                                 var newId = id.substring(1) + '_custom_' + colorSafe;
                                 var existingNewMarker = document.getElementById(newId);
+                                
                                 if (!existingNewMarker) {{
                                     var newMarker = marker.cloneNode(true);
                                     newMarker.id = newId;
@@ -400,9 +229,7 @@ if not st.session_state.datos_procesados:
                 else:
                     st.session_state.periodo_fechas = "Período no disponible"
 
-                # Solo se hace merge con ESTADO; EST_ORDEN ya fue capturado en dict_orden
-                # y no es necesario en el DataFrame de trabajo.
-                df = df_log.merge(df_est[['ESTADO']], on='ESTADO', how='left')
+                df = df_log.merge(df_est[['ESTADO', 'EST_ORDEN']], on='ESTADO', how='left')
                 df = df.sort_values(['ID', 'FECHA_ESTADO'])
                 
                 transiciones = []
@@ -420,8 +247,7 @@ if not st.session_state.datos_procesados:
                     for i in range(len(estados)-1):
                         duracion = (fechas[i+1] - fechas[i]).days if pd.notnull(fechas[i+1]) and pd.notnull(fechas[i]) else 0
                         transiciones.append({
-                            'ID': case_id, 'Origen': estados[i], 'Destino': estados[i+1],
-                            'Fecha_Inicio': fechas[i],
+                            'ID': case_id, 'Origen': estados[i], 'Destino': estados[i+1], 
                             'Duracion': duracion, 'Recurso_Origen': recursos[i]
                         })
                 
@@ -461,7 +287,7 @@ if st.session_state.datos_procesados:
         st.session_state.datos_procesados = False
         st.rerun()
 
-    tab1, tab2, tab3 = st.tabs(["Mapa de Proceso", "Predicciones", "Resumen Ejecutivo"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Mapa de Proceso", "Predicciones", "Diagnóstico", "Pronóstico duración"])
 
     # ------------------------------------------
     # PESTAÑA 1: MAPA DE PROCESO
@@ -627,29 +453,7 @@ if st.session_state.datos_procesados:
                     estilos_flechas += f'    linkStyle {idx} stroke-width:{grosor}px,stroke:{color_linea}{dash_style}\n'
                 
                 mermaid_code += estilos_flechas
-
-                # Construir datos por nodo para el popup de doble clic
-                node_data_popup = {}
-                for nombre_real in nodos_unicos:
-                    if nombre_real in ["Inicio proceso", "Fin proceso"]:
-                        continue
-                    df_nodo = df_grafo[df_grafo['Origen'] == nombre_real][
-                        ['ID', 'Fecha_Inicio', 'Recurso_Origen', 'Duracion']
-                    ].copy()
-                    df_nodo['Fecha_Inicio'] = pd.to_datetime(df_nodo['Fecha_Inicio'], errors='coerce')
-                    df_nodo['Fecha_Inicio'] = df_nodo['Fecha_Inicio'].dt.strftime('%d-%m-%Y').fillna('—')
-                    df_nodo = df_nodo.sort_values('Fecha_Inicio')
-                    node_data_popup[nombre_real] = [
-                        {
-                            'id':       str(r['ID']),
-                            'fecha':    str(r['Fecha_Inicio']),
-                            'recurso':  str(r['Recurso_Origen']),
-                            'duracion': int(r['Duracion']) if pd.notnull(r['Duracion']) else 0
-                        }
-                        for _, r in df_nodo.iterrows()
-                    ]
-
-                render_mermaid(mermaid_code, node_data=node_data_popup)
+                render_mermaid(mermaid_code)
                 
                 st.markdown("""
                     <div style="display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px; font-family: Arial, sans-serif; font-size: 13px; margin-top: 15px; padding: 12px; background-color: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;">
@@ -667,9 +471,6 @@ if st.session_state.datos_procesados:
                             <span style="display: inline-block; width: 14px; height: 14px; background-color: #d64e74; border: 1px solid #ccc; border-radius: 3px;"></span>
                             <span style="display: inline-block; width: 14px; height: 14px; background-color: #c9184a; border: 1px solid #ccc; border-radius: 3px;"></span>
                             <span style="margin-left: 3px;">Máximo</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 5px; margin-left: 15px; color: #6b7280;">
-                            <span>🖱️</span> <b>Doble clic</b> sobre una etapa para ver los casos asociados
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
@@ -832,7 +633,7 @@ if st.session_state.datos_procesados:
     # PESTAÑA 3: RESUMEN EJECUTIVO
     # ------------------------------------------
     with tab3:
-        st.markdown("### Resumen Ejecutivo")
+        st.markdown("### Diagnóstico")
         st.caption("Diagnóstico at-a-glance para la toma de decisiones. Basado en el universo completo de casos cargados.")
 
         N_MIN_RESUMEN = 5
@@ -1064,3 +865,256 @@ if st.session_state.datos_procesados:
             mostrar_tabla_html(estilo_pron)
         else:
             st.info(f"No hay variantes con al menos {N_MIN_RESUMEN} casos para generar pronósticos.")
+
+    # ------------------------------------------
+    # PESTAÑA 4: PRONÓSTICO DURACIÓN
+    # ------------------------------------------
+    with tab4:
+        st.markdown("### Pronóstico de duración por variante de proceso")
+        st.caption("Estimaciones basadas en el historial de casos cargados, asumiendo condiciones similares a futuro. Haz clic en una variante para ver el detalle.")
+
+        # ── Funciones estadísticas ────────────────────────────────────────────
+
+        def emp_percentil(valores, p):
+            sorted_v = np.sort(valores)
+            idx = (p / 100) * (len(sorted_v) - 1)
+            lo, hi = int(np.floor(idx)), int(np.ceil(idx))
+            return sorted_v[lo] + (sorted_v[hi] - sorted_v[lo]) * (idx - lo)
+
+        def fit_lognormal(valores):
+            logs = np.log(np.maximum(0.01, valores))
+            mu    = logs.mean()
+            sigma = logs.std(ddof=1)
+            return mu, sigma
+
+        def lognormal_percentil(mu, sigma, p):
+            from scipy.stats import norm as _norm
+            return np.exp(mu + sigma * _norm.ppf(p / 100))
+
+        def lognormal_fit_ok(valores):
+            if len(valores) < 8:
+                return False
+            logs = np.log(np.maximum(0.01, valores))
+            mu   = logs.mean()
+            s2   = logs.std()
+            if s2 == 0:
+                return False
+            skew = np.abs(((logs - mu) ** 3).mean() / s2 ** 3)
+            return skew < 1.5
+
+        def calcular_stats_pronostico(valores):
+            n = len(valores)
+            advertencia  = None
+            nota_metodo  = ""
+
+            if n >= 100:
+                metodo = "empirico"
+                nota_metodo = (
+                    f"Percentiles empíricos (n={n}). Con una muestra de {n} casos, "
+                    "los percentiles se calculan directamente de los datos históricos "
+                    "sin suponer ninguna distribución estadística. "
+                    "Los resultados son estables a este tamaño de muestra."
+                )
+                ps = {p: emp_percentil(valores, p) for p in [10,25,50,75,90]}
+
+            elif n >= 30:
+                if lognormal_fit_ok(valores):
+                    metodo = "lognormal"
+                    mu, sigma = fit_lognormal(valores)
+                    nota_metodo = (
+                        f"Distribución lognormal ajustada por máxima verosimilitud (n={n}). "
+                        "Con una muestra moderada, se ajustó una distribución lognormal a los datos históricos "
+                        "para estabilizar las estimaciones en los extremos. "
+                        "La bondad del ajuste fue verificada y resultó satisfactoria."
+                    )
+                    ps = {p: lognormal_percentil(mu, sigma, p) for p in [10,25,50,75,90]}
+                else:
+                    metodo = "empirico"
+                    nota_metodo = (
+                        f"Percentiles empíricos (n={n}). Se intentó ajustar una distribución lognormal, "
+                        "pero la bondad de ajuste no fue satisfactoria. "
+                        "Se usaron percentiles empíricos directamente."
+                    )
+                    advertencia = "El ajuste a una distribución estadística no fue satisfactorio. Se usaron percentiles empíricos, que pueden ser menos precisos en los extremos con muestras pequeñas."
+                    ps = {p: emp_percentil(valores, p) for p in [10,25,50,75,90]}
+                if n < 60:
+                    nota_n = f"Muestra moderada ({n} casos). Las estimaciones en los extremos tienen mayor margen de error."
+                    advertencia = (advertencia + " " + nota_n) if advertencia else nota_n
+
+            else:
+                metodo = "empirico"
+                nota_metodo = (
+                    f"Percentiles empíricos (n={n}). La muestra es insuficiente para un ajuste estadístico confiable. "
+                    "Las estimaciones son referenciales."
+                )
+                advertencia = f"Muestra insuficiente ({n} casos). Las estimaciones son referenciales y deben interpretarse con cautela."
+                ps = {p: emp_percentil(valores, p) for p in [10,25,50,75,90]}
+
+            if advertencia:
+                nota_metodo = nota_metodo + " — " + advertencia
+
+            return {
+                'n': n, 'metodo': metodo,
+                'nota_metodo': nota_metodo,
+                'p10': round(ps[10]), 'p25': round(ps[25]), 'p50': round(ps[50]),
+                'p75': round(ps[75]), 'p90': round(ps[90]),
+            }
+
+        # ── Calcular stats por variante ───────────────────────────────────────
+        N_MIN_PRON = 5
+        variantes_stats = []
+        diccionario_rutas_pron = df_var.set_index('Nombre_Variante')['Ruta'].to_dict()
+        total_casos_pron = len(df_var)
+
+        for var_nombre, grp in df_var.groupby('Nombre_Variante'):
+            vals = grp['Duracion_Total'].dropna().values
+            if len(vals) < N_MIN_PRON:
+                continue
+            st_v = calcular_stats_pronostico(vals)
+            st_v['variante']    = var_nombre
+            st_v['ruta']        = diccionario_rutas_pron.get(var_nombre, '')
+            st_v['casos']       = len(vals)
+            st_v['pct']         = (len(vals) / total_casos_pron) * 100
+            variantes_stats.append(st_v)
+
+        # Ordenar por frecuencia descendente
+        variantes_stats.sort(key=lambda x: x['casos'], reverse=True)
+
+        if not variantes_stats:
+            st.info(f"No hay variantes con al menos {N_MIN_PRON} casos para generar pronósticos.")
+        else:
+            max_dias_pron = max(v['p90'] for v in variantes_stats) * 1.10
+
+            def riesgo_variante(st_v):
+                cv = (st_v['p90'] - st_v['p10']) / st_v['p50'] if st_v['p50'] > 0 else 99
+                if st_v['p50'] <= 10 and cv < 1.2: return "bajo"
+                if st_v['p50'] <= 20 and cv < 1.8: return "medio"
+                return "alto"
+
+            RIESGO_CFG = {
+                "bajo":  {"label": "Predecible",        "border": "#22c55e", "text": "#166534"},
+                "medio": {"label": "Moderado",          "border": "#f59e0b", "text": "#92400e"},
+                "alto":  {"label": "Alta variabilidad", "border": "#f43f5e", "text": "#9f1239"},
+            }
+
+            # ── Leyenda global ────────────────────────────────────────────────
+            st.markdown("""
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;font-family:Arial,sans-serif;font-size:12px;">
+                    <div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;">
+                        <div style="width:32px;height:8px;background:#bfdbfe;border-radius:3px;"></div>
+                        <span style="color:#6b7280;">80% de los casos (P10–P90)</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;">
+                        <div style="width:32px;height:8px;background:#3b82f6;border-radius:3px;"></div>
+                        <span style="color:#6b7280;">50% de los casos (P25–P75)</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;">
+                        <div style="width:3px;height:16px;background:#1e3a8a;border-radius:2px;"></div>
+                        <span style="color:#6b7280;">Duración típica (mediana)</span>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # ── Tarjetas por variante ─────────────────────────────────────────
+            for st_v in variantes_stats:
+                r    = riesgo_variante(st_v)
+                cfg  = RIESGO_CFG[r]
+                var  = st_v['variante']
+                pct_barra_p10  = min(100, (st_v['p10']  / max_dias_pron) * 100)
+                pct_barra_p25  = min(100, (st_v['p25']  / max_dias_pron) * 100)
+                pct_barra_p50  = min(100, (st_v['p50']  / max_dias_pron) * 100)
+                pct_barra_p75  = min(100, (st_v['p75']  / max_dias_pron) * 100)
+                pct_barra_p90  = min(100, (st_v['p90']  / max_dias_pron) * 100)
+                ancho_80 = max(0, pct_barra_p90 - pct_barra_p10)
+                ancho_50 = max(0, pct_barra_p75 - pct_barra_p25)
+                with st.expander(f"**{var}** — {formato_latino(st_v['p50'], 0)} días duración típica · {st_v['n']} casos · {formato_latino(st_v['pct'], 1)}% del total", expanded=False):
+
+                    # Barra de rango + cabecera visual
+                    st.markdown(f"""
+                        <div style="background:#F9F9F9;border:2px solid {cfg['border']};border-radius:10px;
+                                    padding:14px 18px 10px;font-family:Arial,sans-serif;margin-bottom:10px;">
+                            <!-- Cabecera: badge de nivel + ruta -->
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+                                <span style="font-weight:bold;font-size:15px;color:#1f2937;">{var}</span>
+                                <span style="font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px;
+                                    background:#fff;color:{cfg['text']};border:1px solid {cfg['border']};">
+                                    {cfg['label']}
+                                </span>
+                                <span style="font-size:12px;color:#6b7280;">{st_v['n']} casos · {formato_latino(st_v['pct'], 1)}% del total</span>
+                            </div>
+                            <div style="font-size:12px;color:#9ca3af;font-family:monospace;margin-bottom:12px;">{st_v['ruta']}</div>
+
+                            <!-- Barra de rango -->
+                            <div style="position:relative;height:28px;margin-bottom:4px;">
+                                <!-- fondo -->
+                                <div style="position:absolute;top:10px;left:0;right:0;height:8px;background:#e8ecf0;border-radius:4px;"></div>
+                                <!-- P10–P90 (80%) -->
+                                <div style="position:absolute;top:10px;left:{pct_barra_p10:.1f}%;width:{ancho_80:.1f}%;height:8px;background:#bfdbfe;border-radius:4px;"></div>
+                                <!-- P25–P75 (50%) -->
+                                <div style="position:absolute;top:10px;left:{pct_barra_p25:.1f}%;width:{ancho_50:.1f}%;height:8px;background:#3b82f6;border-radius:4px;"></div>
+                                <!-- Mediana -->
+                                <div style="position:absolute;top:6px;left:{pct_barra_p50:.1f}%;transform:translateX(-50%);width:3px;height:16px;background:#1e3a8a;border-radius:2px;"></div>
+                                <!-- Etiqueta mediana -->
+                                <div style="position:absolute;top:0px;left:{pct_barra_p50:.1f}%;transform:translateX(-50%);font-size:11px;color:#1e3a8a;font-weight:bold;white-space:nowrap;">{st_v['p50']}d</div>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;margin-top:2px;">
+                                <span>P10: {st_v['p10']}d</span>
+                                <span style="color:#6b7280;">
+                                    <b style="color:#3b82f6;">■</b> 50% entre {st_v['p25']}–{st_v['p75']}d &nbsp;
+                                    <b style="color:#bfdbfe;">■</b> 80% entre {st_v['p10']}–{st_v['p90']}d
+                                </span>
+                                <span>P90: {st_v['p90']}d</span>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    # Narrativa + nota metodológica
+                    tooltip_id = f"tt_{var.replace(' ','_')}"
+
+                    st.markdown(f"""
+                        <div style="font-family:Arial,sans-serif;padding:0 2px;">
+                            <div style="font-size:13px;font-weight:bold;color:#374151;margin-bottom:10px;">
+                                Estimación para un caso futuro de este tipo
+                            </div>
+                            <div style="font-size:13px;line-height:2.0;color:#374151;margin-bottom:14px;">
+                                <div>
+                                    <span style="display:inline-block;width:12px;height:12px;background:#22c55e;
+                                        border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
+                                    <b>En la mitad de los casos</b>, el proceso se resuelve en
+                                    <b>{st_v['p50']} días o menos</b>.
+                                </div>
+                                <div>
+                                    <span style="display:inline-block;width:12px;height:12px;background:#3b82f6;
+                                        border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
+                                    <b>8 de cada 10 casos</b> se resuelven entre
+                                    <b>{st_v['p10']} y {st_v['p90']} días</b>.
+                                </div>
+                                <div>
+                                    <span style="display:inline-block;width:12px;height:12px;background:#f43f5e;
+                                        border-radius:50%;vertical-align:middle;margin-right:8px;"></span>
+                                    <b>1 de cada 10 casos</b> supera los
+                                    <b style="color:#dc2626;">{st_v['p90']} días</b>.
+                                </div>
+                            </div>
+
+                            <!-- Nota metodológica con tooltip CSS puro -->
+                            <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:9px 12px;font-size:12px;position:relative;display:inline-block;">
+                                <style>
+                                    #nota_{tooltip_id}:hover #tip_{tooltip_id} {{ display:block; }}
+                                </style>
+                                <span id="nota_{tooltip_id}" style="cursor:help;">
+                                    <span style="font-weight:bold;color:#0369a1;border-bottom:1px dotted #0369a1;">
+                                        Nota metodológica
+                                    </span>
+                                    <span id="tip_{tooltip_id}" style="display:none;position:absolute;bottom:calc(100% + 8px);left:0;
+                                        background:#1f2937;color:#f9fafb;border-radius:8px;padding:10px 14px;
+                                        font-size:12px;line-height:1.6;width:360px;z-index:9999;
+                                        box-shadow:0 4px 16px rgba(0,0,0,0.25);pointer-events:none;">
+                                        {st_v['nota_metodo']}
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
