@@ -81,6 +81,24 @@ st.markdown(f"""
             font-size: 22px !important; font-weight: bold !important;
             color: {P_DARK} !important;
         }}
+        /* Botones colapsables custom (reemplazo de st.expander) */
+        [data-testid="stMainBlockContainer"] button[data-testid="baseButton-secondary"] {{
+            background: #f8f9fa !important;
+            border: 1px solid {P_BORDER} !important;
+            border-radius: 6px !important;
+            color: {P_DARK} !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            text-align: left !important;
+            padding: 10px 16px !important;
+            margin-top: 6px !important;
+            justify-content: flex-start !important;
+        }}
+        [data-testid="stMainBlockContainer"] button[data-testid="baseButton-secondary"]:hover {{
+            background: #f0faf8 !important;
+            border-color: {P_TEAL} !important;
+            color: {P_TEAL} !important;
+        }}
         /* Oculta el iframe fantasma del inject JS */
         div[data-testid="stIFrame"] iframe[height="0"],
         .element-container:has(iframe[height="0"]) {{
@@ -508,6 +526,10 @@ if 'df_variantes'     not in st.session_state: st.session_state.df_variantes    
 if 'dict_orden'       not in st.session_state: st.session_state.dict_orden        = {}
 if 'periodo_fechas'   not in st.session_state: st.session_state.periodo_fechas    = ""
 if 'tiene_est_orden'  not in st.session_state: st.session_state.tiene_est_orden   = False
+# Colapsables custom (sin dependencia de Material Icons)
+if 'exp_etapa'  not in st.session_state: st.session_state.exp_etapa  = False
+if 'exp_rec'    not in st.session_state: st.session_state.exp_rec    = False
+if 'exp_metodo' not in st.session_state: st.session_state.exp_metodo = False
 
 # ==========================================
 # 3. PANTALLA 1: CARGA DE DATOS
@@ -1037,38 +1059,54 @@ if st.session_state.datos_procesados:
 
         st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
-        # -- Sección 2: Tiempos por etapa (expander) ---------------------------
-        with st.expander("Tiempos por etapa"):
-            st.caption(
-                "Días de permanencia en cada etapa: desde el inicio de la etapa "
-                "hasta el inicio de la siguiente."
-            )
-            df_etapas = df_trans[
-                (df_trans['Origen'] != 'Inicio proceso') &
-                (df_trans['Destino'] != 'Fin proceso')
-            ]
-            stats_etapas = calcular_estadisticas(df_etapas, 'Origen', 'Duracion', 'Etapa')
-            if not stats_etapas.empty:
-                render_tabla_con_calidad(stats_etapas, 'Etapa')
-            else:
-                st.info("Sin datos de etapas.")
+        # -- Sección 2: Tiempos por etapa (colapsable custom) ------------------
+        lbl_etapa = "▼  Tiempos por etapa" if st.session_state.exp_etapa else "▶  Tiempos por etapa"
+        if st.button(lbl_etapa, key="btn_exp_etapa", use_container_width=True):
+            st.session_state.exp_etapa = not st.session_state.exp_etapa
+            st.rerun()
+        if st.session_state.exp_etapa:
+            with st.container():
+                st.caption(
+                    "Días de permanencia en cada etapa: desde el inicio de la etapa "
+                    "hasta el inicio de la siguiente."
+                )
+                df_etapas = df_trans[
+                    (df_trans['Origen'] != 'Inicio proceso') &
+                    (df_trans['Destino'] != 'Fin proceso')
+                ]
+                stats_etapas = calcular_estadisticas(df_etapas, 'Origen', 'Duracion', 'Etapa')
+                if not stats_etapas.empty:
+                    render_tabla_con_calidad(stats_etapas, 'Etapa')
+                else:
+                    st.info("Sin datos de etapas.")
 
-        # -- Sección 3: Tiempos por recurso (expander) -------------------------
-        with st.expander("Tiempos por recurso"):
-            st.caption(
-                "Tiempo promedio que cada recurso demora en completar las etapas asignadas."
-            )
-            df_rec_t2 = df_trans[df_trans['Recurso_Origen'] != 'Sistema']
-            stats_rec  = calcular_estadisticas(df_rec_t2, 'Recurso_Origen', 'Duracion', 'Recurso')
-            if not stats_rec.empty:
-                render_tabla_con_calidad(stats_rec, 'Recurso')
-            else:
-                st.info("No se encontraron recursos en los datos.")
+        # -- Sección 3: Tiempos por recurso (colapsable custom) ----------------
+        lbl_rec = "▼  Tiempos por recurso" if st.session_state.exp_rec else "▶  Tiempos por recurso"
+        if st.button(lbl_rec, key="btn_exp_rec", use_container_width=True):
+            st.session_state.exp_rec = not st.session_state.exp_rec
+            st.rerun()
+        if st.session_state.exp_rec:
+            with st.container():
+                st.caption(
+                    "Tiempo promedio que cada recurso demora en completar las etapas asignadas."
+                )
+                df_rec_t2 = df_trans[df_trans['Recurso_Origen'] != 'Sistema']
+                stats_rec  = calcular_estadisticas(df_rec_t2, 'Recurso_Origen', 'Duracion', 'Recurso')
+                if not stats_rec.empty:
+                    render_tabla_con_calidad(stats_rec, 'Recurso')
+                else:
+                    st.info("No se encontraron recursos en los datos.")
 
-        # -- Nota metodológica (expander) --------------------------------------
-        with st.expander("Nota metodológica"):
+        # -- Nota metodológica (colapsable custom) -----------------------------
+        lbl_met = "▼  Nota metodológica" if st.session_state.exp_metodo else "▶  Nota metodológica"
+        if st.button(lbl_met, key="btn_exp_metodo", use_container_width=True):
+            st.session_state.exp_metodo = not st.session_state.exp_metodo
+            st.rerun()
+        if st.session_state.exp_metodo:
             st.markdown(f"""
-                <div style="font-size:13px;font-family:Arial,sans-serif;line-height:1.8;">
+                <div style="font-size:13px;font-family:Arial,sans-serif;line-height:1.8;
+                            background:#f9fafb;border:1px solid {P_BORDER};
+                            border-radius:6px;padding:14px 18px;margin-top:4px;">
                 <b>Sobre los estimadores presentados</b><br>
                 • <b>Mediana (P50)</b>: estimador central preferido para tiempos de proceso
                   debido a la asimetría positiva característica de estas distribuciones.
