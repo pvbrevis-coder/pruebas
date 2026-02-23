@@ -81,6 +81,15 @@ st.markdown(f"""
             font-size: 22px !important; font-weight: bold !important;
             color: {P_DARK} !important;
         }}
+        /* Pestañas fijas al hacer scroll */
+        div[data-testid="stTabs"] > div:first-child {{
+            position: sticky !important;
+            top: 38px !important;
+            z-index: 99998 !important;
+            background: white !important;
+            border-bottom: 1px solid {P_BORDER} !important;
+            padding-bottom: 2px !important;
+        }}
     </style>
     <div class="fixed-header">
         <div class="header-dot"></div>
@@ -444,7 +453,7 @@ if st.session_state.datos_procesados:
     tab1, tab2, tab3, tab4 = st.tabs([
         "Mapa de Proceso",
         "Análisis Estadístico",
-        "Resumen Ejecutivo",
+        "Diagnóstico",
         "Pronóstico por Variante"
     ])
 
@@ -851,171 +860,71 @@ if st.session_state.datos_procesados:
             st.warning(f"No hay variantes con al menos {N_MIN_VALIDO} casos.")
 
         st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
+        st.markdown(f"<hr style='border:none;border-top:1px solid {P_BORDER};margin:4px 0 16px 0;'>", unsafe_allow_html=True)
 
-        # -- Sección 2 y 3: colapsadas (detalle operativo) ---------------------
-        with st.expander("Tiempos por etapa (detalle operativo)"):
-            st.caption(
-                "Días de permanencia en cada etapa: desde el inicio de la etapa "
-                "hasta el inicio de la siguiente."
-            )
-            df_etapas = df_trans[
-                (df_trans['Origen'] != 'Inicio proceso') &
-                (df_trans['Destino'] != 'Fin proceso')
-            ]
-            stats_etapas = calcular_estadisticas(df_etapas, 'Origen', 'Duracion', 'Etapa')
-            if not stats_etapas.empty:
-                render_tabla_con_calidad(stats_etapas, 'Etapa')
-            else:
-                st.info("Sin datos de etapas.")
+        # -- Sección 2: Tiempos por etapa --------------------------------------
+        st.markdown("#### Tiempos por etapa")
+        st.caption(
+            "Días de permanencia en cada etapa: desde el inicio de la etapa "
+            "hasta el inicio de la siguiente."
+        )
+        df_etapas = df_trans[
+            (df_trans['Origen'] != 'Inicio proceso') &
+            (df_trans['Destino'] != 'Fin proceso')
+        ]
+        stats_etapas = calcular_estadisticas(df_etapas, 'Origen', 'Duracion', 'Etapa')
+        if not stats_etapas.empty:
+            render_tabla_con_calidad(stats_etapas, 'Etapa')
+        else:
+            st.info("Sin datos de etapas.")
 
-        with st.expander("Tiempos por recurso (detalle operativo)"):
-            st.caption(
-                "Tiempo promedio que cada recurso demora en completar las etapas asignadas."
-            )
-            df_rec_t2 = df_trans[df_trans['Recurso_Origen'] != 'Sistema']
-            stats_rec  = calcular_estadisticas(df_rec_t2, 'Recurso_Origen', 'Duracion', 'Recurso')
-            if not stats_rec.empty:
-                render_tabla_con_calidad(stats_rec, 'Recurso')
-            else:
-                st.info("No se encontraron recursos en los datos.")
+        st.markdown(f"<hr style='border:none;border-top:1px solid {P_BORDER};margin:4px 0 16px 0;'>", unsafe_allow_html=True)
 
-        # -- Nota metodológica colapsada ---------------------------------------
-        with st.expander("Nota metodológica"):
-            st.markdown(f"""
-                <div style="font-size:13px;font-family:Arial,sans-serif;line-height:1.8;">
-                <b>Sobre los estimadores presentados</b><br>
-                • <b>Mediana (P50)</b>: estimador central preferido para tiempos de proceso
-                  debido a la asimetría positiva característica de estas distribuciones.
-                  Es más robusta ante valores extremos que la media aritmética.<br>
-                • <b>P5 / P25 / P75 / P95</b>: percentiles empíricos calculados directamente
-                  de los datos históricos, sin suponer ninguna distribución estadística subyacente.<br>
-                • <b>Media</b>: incluida como referencia, pero puede sobreestimar la duración
-                  típica en presencia de casos extremos (colas largas).<br>
-                • <b>Detección de atípicos</b>: método IQR (1,5 × rango intercuartílico).
-                  Los valores atípicos se señalan en la tabla pero no se eliminan del análisis.<br>
-                • <b>Umbral mínimo</b>: grupos con menos de {N_MIN_VALIDO} casos se excluyen
-                  o marcan como poco fiables. Con n &lt; 10, los percentiles extremos (P5/P95)
-                  coinciden prácticamente con el mínimo y máximo observados.<br>
-                • El <b>tiempo por etapa</b> es el sojourn time: días transcurridos desde
-                  el inicio de la etapa hasta el inicio de la siguiente.
-                </div>
-            """, unsafe_allow_html=True)
+        # -- Sección 3: Tiempos por recurso ------------------------------------
+        st.markdown("#### Tiempos por recurso")
+        st.caption(
+            "Tiempo promedio que cada recurso demora en completar las etapas asignadas."
+        )
+        df_rec_t2 = df_trans[df_trans['Recurso_Origen'] != 'Sistema']
+        stats_rec  = calcular_estadisticas(df_rec_t2, 'Recurso_Origen', 'Duracion', 'Recurso')
+        if not stats_rec.empty:
+            render_tabla_con_calidad(stats_rec, 'Recurso')
+        else:
+            st.info("No se encontraron recursos en los datos.")
+
+        st.markdown(f"<hr style='border:none;border-top:1px solid {P_BORDER};margin:4px 0 16px 0;'>", unsafe_allow_html=True)
+
+        # -- Nota metodológica -------------------------------------------------
+        st.markdown("#### Nota metodológica")
+        st.markdown(f"""
+            <div style="font-size:13px;font-family:Arial,sans-serif;line-height:1.8;">
+            <b>Sobre los estimadores presentados</b><br>
+            • <b>Mediana (P50)</b>: estimador central preferido para tiempos de proceso
+              debido a la asimetría positiva característica de estas distribuciones.
+              Es más robusta ante valores extremos que la media aritmética.<br>
+            • <b>P5 / P25 / P75 / P95</b>: percentiles empíricos calculados directamente
+              de los datos históricos, sin suponer ninguna distribución estadística subyacente.<br>
+            • <b>Media</b>: incluida como referencia, pero puede sobreestimar la duración
+              típica en presencia de casos extremos (colas largas).<br>
+            • <b>Detección de atípicos</b>: método IQR (1,5 × rango intercuartílico).
+              Los valores atípicos se señalan en la tabla pero no se eliminan del análisis.<br>
+            • <b>Umbral mínimo</b>: grupos con menos de {N_MIN_VALIDO} casos se excluyen
+              o marcan como poco fiables. Con n &lt; 10, los percentiles extremos (P5/P95)
+              coinciden prácticamente con el mínimo y máximo observados.<br>
+            • El <b>tiempo por etapa</b> es el sojourn time: días transcurridos desde
+              el inicio de la etapa hasta el inicio de la siguiente.
+            </div>
+        """, unsafe_allow_html=True)
 
     # ──────────────────────────────────────────────
-    # PESTAÑA 3: RESUMEN EJECUTIVO
+    # PESTAÑA 3: DIAGNÓSTICO
     # ──────────────────────────────────────────────
     with tab3:
-        st.subheader("Resumen Ejecutivo")
-        st.caption(
-            "Visión de alto nivel para la toma de decisiones. "
-            f"Basado en el universo completo de casos cargados. {periodo_fechas}."
-        )
+        st.markdown("### Diagnóstico")
+        st.caption("Diagnóstico at-a-glance para la toma de decisiones. Basado en el universo completo de casos cargados.")
 
-        # ── KPIs globales ─────────────────────────────────────────────────────
-        total_casos    = df_var['ID'].nunique()
-        etapas_activas = df_trans[
-            ~df_trans['Origen'].isin(['Inicio proceso', 'Fin proceso'])
-        ]['Origen'].nunique()
-        mediana_global = df_var['Duracion_Total'].median()
-
-        # % reproceso: transiciones clasificadas como reproceso / total transiciones
-        trans_noSys = df_trans[
-            (~df_trans['Origen'].isin(['Inicio proceso', 'Fin proceso'])) &
-            (~df_trans['Destino'].isin(['Inicio proceso', 'Fin proceso']))
-        ]
-        reprocesos = 0
-        for _, row in trans_noSys.iterrows():
-            o = str(row['Origen']).strip()
-            d = str(row['Destino']).strip()
-            oo = dict_orden.get(o)
-            do = dict_orden.get(d)
-            if oo is not None and do is not None and do < oo:
-                reprocesos += 1
-        pct_reproceso = (reprocesos / len(trans_noSys) * 100) if len(trans_noSys) > 0 else 0
-
-        k1, k2, k3, k4 = st.columns(4)
-        with k1:
-            st.metric("Total de casos", formato_latino(total_casos, 0))
-        with k2:
-            st.metric("Etapas activas", formato_latino(etapas_activas, 0))
-        with k3:
-            st.metric("Duración mediana global", f"{formato_latino(mediana_global)} días")
-        with k4:
-            st.metric("Transiciones con reproceso",
-                      f"{formato_latino(pct_reproceso, 1)}%",
-                      help="Porcentaje de transiciones que retroceden a una etapa anterior.")
-
-        st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
-        st.markdown("---")
-
-        # ── Tendencia temporal ────────────────────────────────────────────────
-        st.markdown("#### Tendencia mensual de duración")
-        st.caption("Duración mediana mensual de casos. Una tendencia creciente sostenida puede indicar deterioro del proceso.")
-
-        df_var_fecha = df_var.copy()
-        df_var_fecha['Fecha_Inicio_Caso'] = pd.to_datetime(
-            df_var_fecha['Fecha_Inicio_Caso'], errors='coerce'
-        )
-        df_var_fecha = df_var_fecha.dropna(subset=['Fecha_Inicio_Caso'])
-
-        if len(df_var_fecha) >= 10:
-            df_var_fecha['Mes'] = df_var_fecha['Fecha_Inicio_Caso'].dt.to_period('M')
-            trend_df = (df_var_fecha.groupby('Mes')['Duracion_Total']
-                        .agg(Mediana='median', n='count')
-                        .reset_index())
-            trend_df['Mes_str'] = trend_df['Mes'].astype(str)
-            trend_df = trend_df[trend_df['n'] >= 3]  # al menos 3 casos por mes
-
-            if len(trend_df) >= 3:
-                x_num  = np.arange(len(trend_df))
-                slope, intercept = np.polyfit(x_num, trend_df['Mediana'].values, 1)
-                trend_dir = "creciente" if slope > 0 else "decreciente"
-                pct_cambio = abs(slope * len(trend_df) / (trend_df['Mediana'].mean() or 1)) * 100
-
-                fig_trend = go.Figure()
-                fig_trend.add_trace(go.Scatter(
-                    x=trend_df['Mes_str'], y=trend_df['Mediana'],
-                    mode='lines+markers',
-                    name='Mediana mensual',
-                    line=dict(color=P_TEAL, width=2),
-                    marker=dict(size=7, color=P_TEAL),
-                    hovertemplate="<b>%{x}</b><br>Mediana: %{y:.1f} días<extra></extra>"
-                ))
-                # Línea de tendencia
-                y_trend = intercept + slope * x_num
-                fig_trend.add_trace(go.Scatter(
-                    x=trend_df['Mes_str'], y=y_trend,
-                    mode='lines', name='Tendencia',
-                    line=dict(color=P_SALMON, width=1.5, dash='dot'),
-                    hoverinfo='skip'
-                ))
-                fig_trend.update_layout(
-                    height=260, margin=dict(l=10, r=20, t=10, b=40),
-                    font=dict(family="Arial", size=12),
-                    legend=dict(orientation="h", y=-0.25),
-                    yaxis_title="Días (mediana)", xaxis_title="",
-                    plot_bgcolor='white', paper_bgcolor='white',
-                    yaxis=dict(rangemode='tozero', gridcolor='#f0f0f0'),
-                    xaxis=dict(gridcolor='#f0f0f0')
-                )
-                st.plotly_chart(fig_trend, use_container_width=True)
-
-                if pct_cambio > 10:
-                    bloque_info(
-                        P_SALMON, "#fff5f4",
-                        f"<b>Tendencia {trend_dir} detectada.</b> La duración mediana "
-                        f"muestra un cambio de ≈{formato_latino(pct_cambio, 1)}% a lo largo "
-                        f"del período. Las estimaciones predictivas pueden estar sesgadas."
-                    )
-            else:
-                st.info("Se necesitan al menos 3 meses con datos para mostrar la tendencia.")
-        else:
-            st.info("Se necesitan al menos 10 casos con fecha para mostrar la tendencia.")
-
-        st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-
-        # ── Cuellos de botella + Recursos ─────────────────────────────────────
-        col_cb, col_rec = st.columns(2)
+        N_MIN_RESUMEN = 5
+        z_resumen = statistics.NormalDist().inv_cdf((1 + 95 / 100) / 2)
 
         df_etapas_res = df_trans[
             (df_trans['Origen'] != 'Inicio proceso') &
@@ -1026,12 +935,41 @@ if st.session_state.datos_procesados:
                        .reset_index().rename(columns={'Origen': 'Etapa'}))
         etapa_stats = etapa_stats[etapa_stats['Promedio'] > 0].sort_values('Promedio', ascending=False)
 
+        def pred_variante(valores, z):
+            n = len(valores)
+            if n < N_MIN_RESUMEN:
+                return None, None, None
+            media  = np.mean(valores)
+            std    = np.std(valores, ddof=1) if n > 1 else 0.0
+            margen = z * std * np.sqrt(1 + 1/n)
+            return media, max(0, media - margen), media + margen
+
+        pronostico_rows = []
+        diccionario_rutas_res = df_var.set_index('Nombre_Variante')['Ruta'].to_dict()
+        for var, grp in df_var.groupby('Nombre_Variante'):
+            vals = grp['Duracion_Total'].dropna().values
+            media, li, ls = pred_variante(vals, z_resumen)
+            if media is not None:
+                pronostico_rows.append({
+                    'Variante': var,
+                    'Ruta':     diccionario_rutas_res.get(var, ''),
+                    'Casos':    len(vals),
+                    'Promedio': media,
+                    'Li95':     li,
+                    'Ls95':     ls,
+                })
+        df_pronostico = (pd.DataFrame(pronostico_rows)
+                         .sort_values('Casos', ascending=False).head(5)
+                         if pronostico_rows else pd.DataFrame())
+
+        col_cb, col_rec = st.columns(2)
+
         with col_cb:
-            st.markdown("#### Cuellos de botella por etapa")
+            st.markdown("#### ① Cuellos de botella por etapa")
             st.caption("Etapas ordenadas por tiempo de permanencia promedio.")
 
             if not etapa_stats.empty:
-                etapa_stats['Casos_txt']   = etapa_stats['Casos'].apply(lambda x: formato_latino(x, 0))
+                etapa_stats['Casos_txt']    = etapa_stats['Casos'].apply(lambda x: formato_latino(x, 0))
                 etapa_stats['Promedio_txt'] = etapa_stats['Promedio'].apply(lambda x: formato_latino(x, 1))
 
                 fig_cb = px.bar(
@@ -1039,7 +977,7 @@ if st.session_state.datos_procesados:
                     x='Promedio', y='Etapa', orientation='h',
                     color='Promedio',
                     color_continuous_scale=["#ffffff", P_SALMON, P_CORAL],
-                    text=etapa_stats['Promedio'].apply(lambda x: f"{formato_latino(x)} d"),
+                    text=etapa_stats['Promedio'].apply(lambda x: f"{formato_latino(x)} días"),
                     custom_data=['Casos_txt', 'Promedio_txt'],
                     labels={'Promedio': 'Días promedio', 'Etapa': ''},
                 )
@@ -1051,7 +989,7 @@ if st.session_state.datos_procesados:
                     )
                 )
                 fig_cb.update_layout(
-                    height=380, font=dict(family="Arial", size=12),
+                    height=380, font=dict(family="Arial", size=13),
                     coloraxis_showscale=False,
                     margin=dict(l=10, r=60, t=10, b=40),
                     yaxis=dict(categoryorder='total ascending'),
@@ -1064,7 +1002,7 @@ if st.session_state.datos_procesados:
                 peor = etapa_stats.iloc[0]
                 bloque_info(
                     P_CORAL, "#fff4f4",
-                    f"<b>Mayor cuello de botella:</b> {peor['Etapa']}<br>"
+                    f"<b>⚠ Mayor cuello de botella:</b> {peor['Etapa']}<br>"
                     f"Promedio de <b>{formato_latino(peor['Promedio'])} días</b> "
                     f"· {formato_latino(peor['Casos'], 0)} casos"
                 )
@@ -1072,73 +1010,141 @@ if st.session_state.datos_procesados:
                 st.info("Sin datos suficientes para calcular cuellos de botella.")
 
         with col_rec:
-            st.markdown("#### Recursos con mayor carga")
-            st.caption("Tiempo promedio de procesamiento por recurso (barras) y volumen (etiqueta).")
+            st.markdown("#### ② Recursos con sobrecarga")
+            st.caption("Cada punto es un recurso. Eje Y: tiempo promedio por etapa. Tamaño: volumen de etapas procesadas.")
 
-            df_rec_res = df_trans[df_trans['Recurso_Origen'] != 'Sistema']
-            recurso_stats = (df_rec_res.groupby('Recurso_Origen')
+            df_recursos_res = df_trans[df_trans['Recurso_Origen'] != 'Sistema']
+            recurso_stats = (df_recursos_res.groupby('Recurso_Origen')
                              .agg(Promedio=('Duracion', 'mean'), Casos=('ID', 'count'))
                              .reset_index().rename(columns={'Recurso_Origen': 'Recurso'}))
 
             if not recurso_stats.empty:
-                recurso_stats['Promedio_txt'] = recurso_stats['Promedio'].apply(
-                    lambda x: formato_latino(x, 1)
-                )
-                recurso_stats['Casos_txt'] = recurso_stats['Casos'].apply(
-                    lambda x: formato_latino(x, 0)
-                )
-                recurso_stats = recurso_stats.sort_values('Promedio', ascending=False)
+                recurso_stats['Promedio_txt'] = recurso_stats['Promedio'].apply(lambda x: formato_latino(x, 1))
+                recurso_stats['Casos_txt']    = recurso_stats['Casos'].apply(lambda x: formato_latino(x, 0))
 
-                fig_rec = px.bar(
+                fig_rec = px.scatter(
                     recurso_stats,
-                    x='Promedio', y='Recurso', orientation='h',
+                    x='Recurso', y='Promedio',
+                    size='Casos',
                     color='Promedio',
                     color_continuous_scale=[P_MINT, P_TEAL, "#5aab9a"],
-                    text=recurso_stats['Promedio'].apply(lambda x: f"{formato_latino(x)} d"),
+                    size_max=60,
+                    text='Recurso',
                     custom_data=['Casos_txt', 'Promedio_txt'],
-                    labels={'Promedio': 'Días promedio', 'Recurso': ''},
+                    labels={'Promedio': 'Tiempo promedio (días)', 'Recurso': ''},
                 )
                 fig_rec.update_traces(
-                    textposition='outside', cliponaxis=False,
+                    textposition='top center',
                     hovertemplate=(
-                        "<b>%{y}</b><br>Tiempo promedio: %{customdata[1]} días<br>"
+                        "<b>%{x}</b><br>Tiempo promedio: %{customdata[1]} días<br>"
                         "Etapas procesadas: %{customdata[0]}<extra></extra>"
                     )
                 )
                 fig_rec.update_layout(
-                    height=380, font=dict(family="Arial", size=12),
+                    height=380, font=dict(family="Arial", size=13),
                     coloraxis_showscale=False,
-                    margin=dict(l=10, r=60, t=10, b=40),
-                    yaxis=dict(categoryorder='total ascending'),
-                    xaxis_title="Tiempo promedio de procesamiento (días)",
-                    xaxis=dict(rangemode='tozero'),
+                    margin=dict(l=10, r=30, t=10, b=60),
+                    xaxis=dict(showticklabels=False),
+                    yaxis_title="Tiempo promedio de procesamiento (días)",
+                    yaxis=dict(rangemode='tozero'),
                     plot_bgcolor='white', paper_bgcolor='white'
                 )
                 st.plotly_chart(fig_rec, use_container_width=True)
 
-                # Criterio metodológico robusto: crítico = alto tiempo AND alto volumen
-                p75_tiempo   = recurso_stats['Promedio'].quantile(0.75)
-                med_casos    = recurso_stats['Casos'].median()
-                candidatos   = recurso_stats[
+                # Criterio robusto: crítico = alto tiempo AND alto volumen
+                p75_tiempo = recurso_stats['Promedio'].quantile(0.75)
+                med_casos  = recurso_stats['Casos'].median()
+                candidatos = recurso_stats[
                     (recurso_stats['Promedio'] > p75_tiempo) &
                     (recurso_stats['Casos']    > med_casos)
                 ]
                 if not candidatos.empty:
-                    peor_r = candidatos.sort_values('Promedio', ascending=False).iloc[0]
+                    peor_r       = candidatos.sort_values('Promedio', ascending=False).iloc[0]
                     criterio_txt = "alto tiempo (>P75) y alto volumen (>mediana)"
                 else:
-                    peor_r = recurso_stats.sort_values('Promedio', ascending=False).iloc[0]
+                    peor_r       = recurso_stats.sort_values('Promedio', ascending=False).iloc[0]
                     criterio_txt = "mayor tiempo promedio"
 
                 bloque_info(
                     P_TEAL, "#f0faf8",
-                    f"<b>Recurso más crítico:</b> {peor_r['Recurso']}<br>"
+                    f"<b>⚠ Recurso más crítico:</b> {peor_r['Recurso']}<br>"
                     f"Promedio de <b>{formato_latino(peor_r['Promedio'])} días</b> "
                     f"· {formato_latino(peor_r['Casos'], 0)} etapas procesadas<br>"
                     f"<span style='font-size:11px;color:{P_GRAY};'>Criterio: {criterio_txt}</span>"
                 )
             else:
                 st.info("Sin datos de recursos para analizar.")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── Pronóstico Top 5 ──────────────────────────────────────────────────
+        st.markdown("#### ③ Pronóstico para casos futuros (Top 5 variantes)")
+        st.caption("Estimación de duración total para un caso nuevo según la variante de proceso. Intervalo de predicción al 95% de confianza.")
+
+        if not df_pronostico.empty:
+            total_casos_resumen = len(df_var)
+            df_pronostico['Pct']         = (df_pronostico['Casos'] / total_casos_resumen) * 100
+            df_pronostico['Promedio_txt'] = df_pronostico['Promedio'].apply(lambda x: formato_latino(x, 1))
+            df_pronostico['Li95_txt']     = df_pronostico['Li95'].apply(lambda x: formato_latino(x, 1))
+            df_pronostico['Ls95_txt']     = df_pronostico['Ls95'].apply(lambda x: formato_latino(x, 1))
+            df_pronostico['Casos_txt']    = df_pronostico['Casos'].apply(lambda x: formato_latino(x, 0))
+            df_pronostico['Label_Casos']  = df_pronostico.apply(
+                lambda r: f"{r['Casos_txt']} ({formato_latino(r['Pct'], 1)}%)", axis=1
+            )
+
+            fig_pron = px.scatter(
+                df_pronostico,
+                x='Variante', y='Promedio',
+                error_y=df_pronostico['Ls95'] - df_pronostico['Promedio'],
+                error_y_minus=df_pronostico['Promedio'] - df_pronostico['Li95'],
+                text='Label_Casos',
+                size='Casos', size_max=30,
+                color_discrete_sequence=[P_TEAL],
+                custom_data=['Li95_txt', 'Ls95_txt', 'Casos_txt', 'Promedio_txt'],
+                labels={'Promedio': 'Días (promedio)', 'Variante': ''},
+            )
+            fig_pron.update_traces(
+                textposition='middle right',
+                hovertemplate=(
+                    "<b>%{x}</b><br>"
+                    "Promedio: %{customdata[3]} días<br>"
+                    "Intervalo 95%: %{customdata[0]} – %{customdata[1]} días<br>"
+                    "Casos: %{customdata[2]}<extra></extra>"
+                )
+            )
+            for _, row in df_pronostico.iterrows():
+                for y_val, txt in [(row['Ls95'], formato_latino(row['Ls95'], 1)),
+                                   (row['Li95'], formato_latino(row['Li95'], 1))]:
+                    fig_pron.add_annotation(
+                        x=row['Variante'], y=y_val,
+                        text=txt, showarrow=False,
+                        xanchor='left', yanchor='middle', xshift=8,
+                        font=dict(size=11, color=P_TEAL)
+                    )
+            fig_pron.update_layout(
+                height=350, font=dict(family="Arial", size=13),
+                margin=dict(l=10, r=80, t=20, b=60),
+                yaxis_title="Duración estimada (días)",
+                yaxis=dict(rangemode='tozero'),
+                plot_bgcolor='white', paper_bgcolor='white'
+            )
+            st.plotly_chart(fig_pron, use_container_width=True)
+
+            tabla_pron = df_pronostico[['Variante', 'Casos', 'Promedio', 'Li95', 'Ls95']].copy()
+            tabla_pron.columns = ['Variante', 'Casos', 'Promedio', 'Límite Inf. (95%)', 'Límite Sup. (95%)']
+            tabla_pron['Variante'] = tabla_pron['Variante'].apply(
+                lambda v: f'<span title="{diccionario_rutas_res.get(v, "")}" '
+                          f'style="cursor:help;border-bottom:1px dotted #888;">{v}</span>'
+            )
+            fmt_pron = {
+                'Promedio':           lambda x: formato_latino(x) + " días",
+                'Límite Inf. (95%)':  lambda x: formato_latino(x) + " días",
+                'Límite Sup. (95%)':  lambda x: formato_latino(x) + " días",
+                'Casos':              lambda x: formato_latino(x, 0),
+            }
+            mostrar_tabla_html(tabla_pron.style.hide(axis="index").format(fmt_pron))
+        else:
+            st.info(f"No hay variantes con al menos {N_MIN_RESUMEN} casos para generar pronósticos.")
 
     # ──────────────────────────────────────────────
     # PESTAÑA 4: PRONÓSTICO POR VARIANTE
