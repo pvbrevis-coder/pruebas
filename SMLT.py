@@ -898,7 +898,7 @@ if st.session_state.datos_procesados:
         st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
 
         # -- Sección 2: Tiempos por etapa (colapsable custom) ------------------
-        lbl_etapa = "▼  Tiempos por etapa" if st.session_state.exp_etapa else "▶  Tiempos por etapa"
+        lbl_etapa = "Tiempos por etapa" if st.session_state.exp_etapa else "Tiempos por etapa"
         if st.button(lbl_etapa, key="btn_exp_etapa", use_container_width=True):
             st.session_state.exp_etapa = not st.session_state.exp_etapa
             st.rerun()
@@ -919,7 +919,7 @@ if st.session_state.datos_procesados:
                     st.info("Sin datos de etapas.")
 
         # -- Sección 3: Tiempos por recurso (colapsable custom) ----------------
-        lbl_rec = "▼  Tiempos por recurso" if st.session_state.exp_rec else "▶  Tiempos por recurso"
+        lbl_rec = "Tiempos por recurso" if st.session_state.exp_rec else "Tiempos por recurso"
         if st.button(lbl_rec, key="btn_exp_rec", use_container_width=True):
             st.session_state.exp_rec = not st.session_state.exp_rec
             st.rerun()
@@ -936,7 +936,7 @@ if st.session_state.datos_procesados:
                     st.info("No se encontraron recursos en los datos.")
 
         # -- Nota metodológica (colapsable custom) -----------------------------
-        lbl_met = "▼  Nota metodológica" if st.session_state.exp_metodo else "▶  Nota metodológica"
+        lbl_met = "Nota metodológica" if st.session_state.exp_metodo else "Nota metodológica"
         if st.button(lbl_met, key="btn_exp_metodo", use_container_width=True):
             st.session_state.exp_metodo = not st.session_state.exp_metodo
             st.rerun()
@@ -1560,3 +1560,4 @@ if st.session_state.datos_procesados:
 
                 altura_inicial = n_cards * 135 + 60
                 components.html(all_cards_html, height=altura_inicial, scrolling=True)
+
