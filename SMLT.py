@@ -21,7 +21,7 @@ P_GRAY     = "#6b7280"   # texto terciario
 P_LIGHTBG  = "#f9fafb"   # fondo tarjetas
 P_BORDER   = "#e5e7eb"   # bordes neutros
 # Escala de calor nodos (mín → máx)
-P_HEAT = ["#ffffff", "#fde8e7", P_SALMON, "#ff9292", P_CORAL]
+P_HEAT = ["#E1E1E1", "#fde8e7", P_SALMON, "#ff9292", P_CORAL]
 # Escala recursos (frío → caliente)
 P_REC  = [P_MINT, P_TEAL, "#5aab9a"]
 
@@ -82,13 +82,17 @@ st.markdown(f"""
             color: {P_DARK} !important;
         }}
         /* Pestañas fijas al hacer scroll */
-        div[data-testid="stTabs"] > div:first-child {{
+        div[role="tablist"] {{
             position: sticky !important;
-            top: 38px !important;
+            top: 40px !important;
             z-index: 99998 !important;
             background: white !important;
-            border-bottom: 1px solid {P_BORDER} !important;
             padding-bottom: 2px !important;
+        }}
+        /* Fix bug _arrow_right en expanders (icono Material no cargado) */
+        [data-testid="stExpander"] summary span[data-testid="stMarkdownContainer"] p > span:first-child,
+        [data-testid="stExpander"] summary > div > p > span:first-child {{
+            display: none !important;
         }}
     </style>
     <div class="fixed-header">
@@ -860,61 +864,56 @@ if st.session_state.datos_procesados:
             st.warning(f"No hay variantes con al menos {N_MIN_VALIDO} casos.")
 
         st.markdown("<div style='height:8px;'></div>", unsafe_allow_html=True)
-        st.markdown(f"<hr style='border:none;border-top:1px solid {P_BORDER};margin:4px 0 16px 0;'>", unsafe_allow_html=True)
 
-        # -- Sección 2: Tiempos por etapa --------------------------------------
-        st.markdown("#### Tiempos por etapa")
-        st.caption(
-            "Días de permanencia en cada etapa: desde el inicio de la etapa "
-            "hasta el inicio de la siguiente."
-        )
-        df_etapas = df_trans[
-            (df_trans['Origen'] != 'Inicio proceso') &
-            (df_trans['Destino'] != 'Fin proceso')
-        ]
-        stats_etapas = calcular_estadisticas(df_etapas, 'Origen', 'Duracion', 'Etapa')
-        if not stats_etapas.empty:
-            render_tabla_con_calidad(stats_etapas, 'Etapa')
-        else:
-            st.info("Sin datos de etapas.")
+        # -- Sección 2: Tiempos por etapa (expander) ---------------------------
+        with st.expander("Tiempos por etapa"):
+            st.caption(
+                "Días de permanencia en cada etapa: desde el inicio de la etapa "
+                "hasta el inicio de la siguiente."
+            )
+            df_etapas = df_trans[
+                (df_trans['Origen'] != 'Inicio proceso') &
+                (df_trans['Destino'] != 'Fin proceso')
+            ]
+            stats_etapas = calcular_estadisticas(df_etapas, 'Origen', 'Duracion', 'Etapa')
+            if not stats_etapas.empty:
+                render_tabla_con_calidad(stats_etapas, 'Etapa')
+            else:
+                st.info("Sin datos de etapas.")
 
-        st.markdown(f"<hr style='border:none;border-top:1px solid {P_BORDER};margin:4px 0 16px 0;'>", unsafe_allow_html=True)
+        # -- Sección 3: Tiempos por recurso (expander) -------------------------
+        with st.expander("Tiempos por recurso"):
+            st.caption(
+                "Tiempo promedio que cada recurso demora en completar las etapas asignadas."
+            )
+            df_rec_t2 = df_trans[df_trans['Recurso_Origen'] != 'Sistema']
+            stats_rec  = calcular_estadisticas(df_rec_t2, 'Recurso_Origen', 'Duracion', 'Recurso')
+            if not stats_rec.empty:
+                render_tabla_con_calidad(stats_rec, 'Recurso')
+            else:
+                st.info("No se encontraron recursos en los datos.")
 
-        # -- Sección 3: Tiempos por recurso ------------------------------------
-        st.markdown("#### Tiempos por recurso")
-        st.caption(
-            "Tiempo promedio que cada recurso demora en completar las etapas asignadas."
-        )
-        df_rec_t2 = df_trans[df_trans['Recurso_Origen'] != 'Sistema']
-        stats_rec  = calcular_estadisticas(df_rec_t2, 'Recurso_Origen', 'Duracion', 'Recurso')
-        if not stats_rec.empty:
-            render_tabla_con_calidad(stats_rec, 'Recurso')
-        else:
-            st.info("No se encontraron recursos en los datos.")
-
-        st.markdown(f"<hr style='border:none;border-top:1px solid {P_BORDER};margin:4px 0 16px 0;'>", unsafe_allow_html=True)
-
-        # -- Nota metodológica -------------------------------------------------
-        st.markdown("#### Nota metodológica")
-        st.markdown(f"""
-            <div style="font-size:13px;font-family:Arial,sans-serif;line-height:1.8;">
-            <b>Sobre los estimadores presentados</b><br>
-            • <b>Mediana (P50)</b>: estimador central preferido para tiempos de proceso
-              debido a la asimetría positiva característica de estas distribuciones.
-              Es más robusta ante valores extremos que la media aritmética.<br>
-            • <b>P5 / P25 / P75 / P95</b>: percentiles empíricos calculados directamente
-              de los datos históricos, sin suponer ninguna distribución estadística subyacente.<br>
-            • <b>Media</b>: incluida como referencia, pero puede sobreestimar la duración
-              típica en presencia de casos extremos (colas largas).<br>
-            • <b>Detección de atípicos</b>: método IQR (1,5 × rango intercuartílico).
-              Los valores atípicos se señalan en la tabla pero no se eliminan del análisis.<br>
-            • <b>Umbral mínimo</b>: grupos con menos de {N_MIN_VALIDO} casos se excluyen
-              o marcan como poco fiables. Con n &lt; 10, los percentiles extremos (P5/P95)
-              coinciden prácticamente con el mínimo y máximo observados.<br>
-            • El <b>tiempo por etapa</b> es el sojourn time: días transcurridos desde
-              el inicio de la etapa hasta el inicio de la siguiente.
-            </div>
-        """, unsafe_allow_html=True)
+        # -- Nota metodológica (expander) --------------------------------------
+        with st.expander("Nota metodológica"):
+            st.markdown(f"""
+                <div style="font-size:13px;font-family:Arial,sans-serif;line-height:1.8;">
+                <b>Sobre los estimadores presentados</b><br>
+                • <b>Mediana (P50)</b>: estimador central preferido para tiempos de proceso
+                  debido a la asimetría positiva característica de estas distribuciones.
+                  Es más robusta ante valores extremos que la media aritmética.<br>
+                • <b>P5 / P25 / P75 / P95</b>: percentiles empíricos calculados directamente
+                  de los datos históricos, sin suponer ninguna distribución estadística subyacente.<br>
+                • <b>Media</b>: incluida como referencia, pero puede sobreestimar la duración
+                  típica en presencia de casos extremos (colas largas).<br>
+                • <b>Detección de atípicos</b>: método IQR (1,5 × rango intercuartílico).
+                  Los valores atípicos se señalan en la tabla pero no se eliminan del análisis.<br>
+                • <b>Umbral mínimo</b>: grupos con menos de {N_MIN_VALIDO} casos se excluyen
+                  o marcan como poco fiables. Con n &lt; 10, los percentiles extremos (P5/P95)
+                  coinciden prácticamente con el mínimo y máximo observados.<br>
+                • El <b>tiempo por etapa</b> es el sojourn time: días transcurridos desde
+                  el inicio de la etapa hasta el inicio de la siguiente.
+                </div>
+            """, unsafe_allow_html=True)
 
     # ──────────────────────────────────────────────
     # PESTAÑA 3: DIAGNÓSTICO
@@ -976,7 +975,7 @@ if st.session_state.datos_procesados:
                     etapa_stats,
                     x='Promedio', y='Etapa', orientation='h',
                     color='Promedio',
-                    color_continuous_scale=["#ffffff", P_SALMON, P_CORAL],
+                    color_continuous_scale=["#E1E1E1", P_SALMON, P_CORAL],
                     text=etapa_stats['Promedio'].apply(lambda x: f"{formato_latino(x)} días"),
                     custom_data=['Casos_txt', 'Promedio_txt'],
                     labels={'Promedio': 'Días promedio', 'Etapa': ''},
