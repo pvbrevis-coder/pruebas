@@ -81,18 +81,26 @@ st.markdown(f"""
             font-size: 22px !important; font-weight: bold !important;
             color: {P_DARK} !important;
         }}
-        /* Pestañas fijas al hacer scroll */
-        div[role="tablist"] {{
-            position: sticky !important;
-            top: 40px !important;
-            z-index: 99998 !important;
-            background: white !important;
-            padding-bottom: 2px !important;
-        }}
-        /* Fix bug _arrow_right en expanders (icono Material no cargado) */
-        [data-testid="stExpander"] summary span[data-testid="stMarkdownContainer"] p > span:first-child,
-        [data-testid="stExpander"] summary > div > p > span:first-child {{
+        /* Oculta el iframe fantasma del inject JS */
+        div[data-testid="stIFrame"] iframe[height="0"],
+        .element-container:has(iframe[height="0"]) {{
             display: none !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }}
+        /* Tabs sticky — CSS fallback (JS refuerza esto en scroll) */
+        div[data-testid="stTabs"] > div:first-child,
+        [data-baseweb="tab-list"] {{
+            position: sticky !important;
+            top: {45}px !important;
+            z-index: 99997 !important;
+            background: white !important;
+        }}
+        /* Asegurar que contenedores intermedios no bloqueen sticky */
+        div[data-testid="stTabs"],
+        div[data-testid="stTabs"] > div {{
+            overflow: visible !important;
         }}
     </style>
     <div class="fixed-header">
@@ -330,6 +338,167 @@ def bloque_info(color_borde, color_fondo, texto_html):
     )
 
 
+def inject_ui_fixes(header_height_px: int = 45):
+    """
+    Inyecta JavaScript via components.html (mismo origen) para:
+    1. Ocultar el texto _arrow_right / expand_more de expanders cuando
+       la fuente Material Icons no carga.
+    2. Hacer la barra de pestañas sticky bajo el header fijo usando
+       position:fixed en scroll, con recalculo de ancho en resize.
+    """
+    js = f"""
+    <script>
+    (function() {{
+        var pd  = window.parent.document;
+        var pw  = window.parent;
+        var HEADER_H = {header_height_px};
+
+        /* ── 1. Fix icono roto en expanders ─────────────────────────────── */
+        var BAD_ICONS = ['expand_more','expand_less','_arrow_right',
+                         '_arrow_drop_down','arrow_right','arrow_drop_down',
+                         'chevron_right','chevron_down','unfold_more'];
+
+        function fixArrows() {{
+            pd.querySelectorAll('[data-testid="stExpander"] summary').forEach(function(s) {{
+                s.querySelectorAll('span, p').forEach(function(el) {{
+                    if (el.children.length === 0) {{
+                        var t = el.textContent.trim();
+                        if (BAD_ICONS.indexOf(t) !== -1 ||
+                            /^_?arrow/i.test(t) || /^expand/i.test(t)) {{
+                            el.style.cssText += ';font-size:0!important;line-height:0!important;'
+                                             + 'width:0!important;overflow:hidden!important;'
+                                             + 'display:inline-block!important;';
+                        }}
+                    }}
+                }});
+            }});
+        }}
+
+        /* ── 2. Tabs sticky ─────────────────────────────────────────────── */
+        var tabList      = null;
+        var scrollEl     = null;
+        var tabPlaceholder = null;   // div vacío para reservar el espacio
+        var isFixed      = false;
+        var tabNatHeight = 0;
+
+        function findScrollEl() {{
+            // Streamlit usa section[data-testid="stMain"] como contenedor scrolleable
+            return pd.querySelector('section[data-testid="stMain"]')
+                || pd.querySelector('.main')
+                || pd.documentElement;
+        }}
+
+        function tabWidth() {{
+            // Ancho del contenedor padre del tablist (bloque central de Streamlit)
+            var parent = tabList && tabList.parentElement;
+            return parent ? parent.getBoundingClientRect().width : 0;
+        }}
+
+        function tabLeftOffset() {{
+            var parent = tabList && tabList.parentElement;
+            return parent ? parent.getBoundingClientRect().left : 0;
+        }}
+
+        function applyFixed() {{
+            if (isFixed) return;
+            isFixed = true;
+            tabNatHeight = tabList.offsetHeight;
+            // Placeholder para que el contenido no salte
+            if (!tabPlaceholder) {{
+                tabPlaceholder = pd.createElement('div');
+                tabList.parentNode.insertBefore(tabPlaceholder, tabList.nextSibling);
+            }}
+            tabPlaceholder.style.height = tabNatHeight + 'px';
+            tabList.style.position        = 'fixed';
+            tabList.style.top             = HEADER_H + 'px';
+            tabList.style.left            = tabLeftOffset() + 'px';
+            tabList.style.width           = tabWidth() + 'px';
+            tabList.style.zIndex          = '99998';
+            tabList.style.backgroundColor = 'white';
+            tabList.style.borderBottom    = '1px solid #e5e7eb';
+            tabList.style.paddingBottom   = '4px';
+            tabList.style.boxShadow       = '0 2px 4px rgba(0,0,0,0.06)';
+        }}
+
+        function removeFixed() {{
+            if (!isFixed) return;
+            isFixed = false;
+            tabList.style.position        = '';
+            tabList.style.top             = '';
+            tabList.style.left            = '';
+            tabList.style.width           = '';
+            tabList.style.zIndex          = '';
+            tabList.style.borderBottom    = '';
+            tabList.style.paddingBottom   = '';
+            tabList.style.boxShadow       = '';
+            if (tabPlaceholder) tabPlaceholder.style.height = '0';
+        }}
+
+        function getTabOriginalTop() {{
+            // Posición natural del tablist desde la parte superior del scroll container
+            if (!scrollEl || !tabList) return 0;
+            var seRect  = scrollEl.getBoundingClientRect ? scrollEl.getBoundingClientRect() : {{top:0}};
+            var tabRect = tabList.getBoundingClientRect();
+            return (tabRect.top - seRect.top) + scrollEl.scrollTop;
+        }}
+
+        function onScroll() {{
+            if (!tabList) return;
+            var st = scrollEl.scrollTop || 0;
+            var origTop = getTabOriginalTop();
+            if (isFixed) origTop = (tabPlaceholder
+                ? tabPlaceholder.getBoundingClientRect().top
+                    - scrollEl.getBoundingClientRect().top
+                    + scrollEl.scrollTop
+                : origTop);
+            if (st > origTop - HEADER_H - 2) {{
+                applyFixed();
+                // Recalcula left/width en cada scroll (resize puede haberlo cambiado)
+                tabList.style.left  = tabLeftOffset() + 'px';
+                tabList.style.width = tabWidth() + 'px';
+            }} else {{
+                removeFixed();
+            }}
+        }}
+
+        function initTabs() {{
+            tabList  = pd.querySelector('[role="tablist"]');
+            scrollEl = findScrollEl();
+            if (!tabList || !scrollEl) return false;
+
+            scrollEl.addEventListener('scroll', onScroll, {{passive: true}});
+            pw.addEventListener('resize', function() {{
+                if (isFixed) {{
+                    tabList.style.left  = tabLeftOffset() + 'px';
+                    tabList.style.width = tabWidth() + 'px';
+                }}
+            }});
+            return true;
+        }}
+
+        /* ── Intervalo principal (captura render dinámico de Streamlit) ──── */
+        var tabsReady = false;
+        var attempts  = 0;
+        var iv = setInterval(function() {{
+            attempts++;
+            try {{ fixArrows(); }} catch(e) {{}}
+            if (!tabsReady) {{
+                try {{ tabsReady = initTabs(); }} catch(e) {{}}
+            }}
+            // Reduce frecuencia después de 10 s
+            if (attempts > 50) {{
+                clearInterval(iv);
+                setInterval(function() {{
+                    try {{ fixArrows(); }} catch(e) {{}}
+                }}, 2000);
+            }}
+        }}, 200);
+    }})();
+    </script>
+    """
+    components.html(js, height=0, scrolling=False)
+
+
 # ==========================================
 # 2. VARIABLES DE SESIÓN
 # ==========================================
@@ -460,6 +629,9 @@ if st.session_state.datos_procesados:
         "Diagnóstico",
         "Pronóstico por Variante"
     ])
+
+    # Inyectar fixes de JS: expander _arrow_right y tabs sticky
+    inject_ui_fixes(header_height_px=45)
 
     # ──────────────────────────────────────────────
     # PESTAÑA 1: MAPA DE PROCESO
