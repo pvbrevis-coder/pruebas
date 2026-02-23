@@ -1109,28 +1109,12 @@ if st.session_state.datos_procesados:
                 "alto":  {"label": "Alta variabilidad", "border": "#f43f5e", "text": "#9f1239"},
             }
 
-            # ── Leyenda global ────────────────────────────────────────────────
-            st.markdown("""
-                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;font-family:Arial,sans-serif;font-size:12px;">
-                    <div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;">
-                        <div style="width:32px;height:8px;background:#bfdbfe;border-radius:3px;"></div>
-                        <span style="color:#6b7280;">80% de los casos (P10&#8211;P90)</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;">
-                        <div style="width:32px;height:8px;background:#3b82f6;border-radius:3px;"></div>
-                        <span style="color:#6b7280;">50% de los casos (P25&#8211;P75)</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:6px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:5px 10px;">
-                        <div style="width:3px;height:16px;background:#1e3a8a;border-radius:2px;"></div>
-                        <span style="color:#6b7280;">Duración típica (mediana)</span>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+            # ── Construir HTML de todas las tarjetas en un único components.html ──
+            # Esto evita el problema de iframes de altura fija que no se desplazan
+            # al expandir: todo vive en un único contenedor que se auto-redimensiona.
 
-            # ── Tarjetas por variante renderizadas con components.html ────────
-            # Se usa components.html porque st.markdown ignora <style> con
-            # hover CSS y puede mostrar comentarios HTML como texto plano.
-            for st_v in variantes_stats:
+            cards_inner = ""
+            for i_v, st_v in enumerate(variantes_stats):
                 r    = riesgo_variante(st_v)
                 cfg  = RIESGO_CFG[r]
                 var  = st_v['variante']
@@ -1138,71 +1122,33 @@ if st.session_state.datos_procesados:
                 n_casos = st_v['n']
                 pct_txt  = formato_latino(st_v['pct'], 1)
                 ruta_txt = st_v['ruta']
-                nota_txt = st_v['nota_metodo'].replace("'", "&#39;")
+                nota_txt = st_v['nota_metodo'].replace("'", "&#39;").replace('"', "&quot;")
+                cid      = f"card_{i_v}"
 
                 pb10 = min(100, (p10 / max_dias_pron) * 100)
                 pb25 = min(100, (p25 / max_dias_pron) * 100)
                 pb50 = min(100, (p50 / max_dias_pron) * 100)
-                pb90 = min(100, (p90 / max_dias_pron) * 100)
                 pb75 = min(100, (p75 / max_dias_pron) * 100)
+                pb90 = min(100, (p90 / max_dias_pron) * 100)
                 w80  = max(0, pb90 - pb10)
                 w50  = max(0, pb75 - pb25)
 
-                cid = var.replace(' ', '_')
-
-                card_html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-                <style>
-                    body{{margin:0;padding:4px 0;font-family:Arial,sans-serif;}}
-                    .card{{background:#F9F9F9;border:2px solid #e5e7eb;border-radius:10px;
-                           padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);
-                           cursor:pointer;transition:border-color 0.15s;}}
-                    .card.open{{border-color:{cfg['border']};cursor:default;}}
-                    .header{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}}
-                    .meta{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}}
-                    .badge{{font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px;
-                            background:#fff;color:{cfg['text']};border:1px solid {cfg['border']};}}
-                    .ncasos{{font-size:12px;color:#6b7280;}}
-                    .ruta{{font-size:12px;color:#9ca3af;font-family:monospace;margin-bottom:12px;}}
-                    .varname{{font-weight:bold;font-size:15px;color:#1f2937;}}
-                    .median-num{{font-size:24px;font-weight:bold;color:{cfg['border']};}}
-                    .median-label{{font-size:11px;color:#9ca3af;text-align:right;}}
-                    .barra{{position:relative;height:38px;margin-bottom:4px;}}
-                    .b-fondo{{position:absolute;top:20px;left:0;right:0;height:8px;background:#e8ecf0;border-radius:4px;}}
-                    .b-80{{position:absolute;top:20px;left:{pb10:.1f}%;width:{w80:.1f}%;height:8px;background:#bfdbfe;border-radius:4px;}}
-                    .b-50{{position:absolute;top:20px;left:{pb25:.1f}%;width:{w50:.1f}%;height:8px;background:#3b82f6;border-radius:4px;}}
-                    .b-med{{position:absolute;top:16px;left:{pb50:.1f}%;transform:translateX(-50%);width:3px;height:16px;background:#1e3a8a;border-radius:2px;}}
-                    .b-medlabel{{position:absolute;top:0;left:{pb50:.1f}%;transform:translateX(-50%);font-size:11px;color:#1e3a8a;font-weight:bold;white-space:nowrap;}}
-                    .b-labels{{display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;margin-top:2px;}}
-                    .detail{{display:none;}}
-                    .card.open .detail{{display:block;}}
-                    .separator{{border:none;border-top:1px solid {cfg['border']}44;margin:12px 0;}}
-                    .narrativa-titulo{{font-size:13px;font-weight:bold;color:#374151;margin-bottom:10px;}}
-                    .narrativa{{font-size:13px;line-height:2.0;color:#374151;margin-bottom:14px;}}
-                    .dot{{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:middle;margin-right:8px;}}
-                    .nota-wrap{{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;
-                                padding:9px 12px;font-size:12px;display:inline-block;position:relative;}}
-                    .nota-label{{font-weight:bold;color:#0369a1;border-bottom:1px dotted #0369a1;cursor:help;}}
-                    .tooltip-box{{display:none;position:absolute;bottom:calc(100% + 8px);left:0;
-                                  background:#1f2937;color:#f9fafb;border-radius:8px;padding:10px 14px;
-                                  font-size:12px;line-height:1.6;width:380px;z-index:9999;
-                                  box-shadow:0 4px 16px rgba(0,0,0,0.25);pointer-events:none;}}
-                    .nota-wrap:hover .tooltip-box{{display:block;}}
-                    .chevron{{font-size:12px;color:#9ca3af;flex-shrink:0;margin-top:4px;transition:transform 0.2s;}}
-                    .card.open .chevron{{transform:rotate(180deg);}}
-                </style></head><body>
-                <div class="card" id="card" onclick="toggle()">
+                cards_inner += f"""
+                <div class="card" id="{cid}"
+                     data-border="{cfg['border']}"
+                     onclick="toggleCard('{cid}')">
                     <div class="header">
-                        <div style="flex:1;">
+                        <div style="flex:1;min-width:0;">
                             <div class="meta">
                                 <span class="varname">{var}</span>
-                                <span class="badge">{cfg['label']}</span>
+                                <span class="badge" style="color:{cfg['text']};border-color:{cfg['border']};">{cfg['label']}</span>
                                 <span class="ncasos">{n_casos} casos &middot; {pct_txt}% del total</span>
                             </div>
                             <div class="ruta">{ruta_txt}</div>
                         </div>
-                        <div style="display:flex;align-items:flex-start;gap:10px;flex-shrink:0;">
+                        <div style="display:flex;align-items:flex-start;gap:8px;flex-shrink:0;">
                             <div style="text-align:right;">
-                                <div class="median-num">{p50}<span style="font-size:13px;color:#6b7280;"> d&#237;as</span></div>
+                                <div class="median-num" style="color:{cfg['border']};">{p50}<span style="font-size:13px;color:#6b7280;"> d&#237;as</span></div>
                                 <div class="median-label">duraci&#243;n t&#237;pica</div>
                             </div>
                             <div class="chevron">&#9660;</div>
@@ -1210,10 +1156,10 @@ if st.session_state.datos_procesados:
                     </div>
                     <div class="barra">
                         <div class="b-fondo"></div>
-                        <div class="b-80"></div>
-                        <div class="b-50"></div>
-                        <div class="b-med"></div>
-                        <div class="b-medlabel">{p50}d</div>
+                        <div style="position:absolute;top:20px;left:{pb10:.1f}%;width:{w80:.1f}%;height:8px;background:#bfdbfe;border-radius:4px;"></div>
+                        <div style="position:absolute;top:20px;left:{pb25:.1f}%;width:{w50:.1f}%;height:8px;background:#3b82f6;border-radius:4px;"></div>
+                        <div style="position:absolute;top:16px;left:{pb50:.1f}%;transform:translateX(-50%);width:3px;height:16px;background:#1e3a8a;border-radius:2px;"></div>
+                        <div style="position:absolute;top:0;left:{pb50:.1f}%;transform:translateX(-50%);font-size:11px;color:#1e3a8a;font-weight:bold;white-space:nowrap;">{p50}d</div>
                     </div>
                     <div class="b-labels">
                         <span>P10: {p10}d</span>
@@ -1224,7 +1170,7 @@ if st.session_state.datos_procesados:
                         <span>P90: {p90}d</span>
                     </div>
                     <div class="detail" onclick="event.stopPropagation()">
-                        <hr class="separator">
+                        <hr style="border:none;border-top:1px solid {cfg['border']}44;margin:12px 0;">
                         <div class="narrativa-titulo">Estimaci&#243;n para un caso futuro de este tipo</div>
                         <div class="narrativa">
                             <div><span class="dot" style="background:#22c55e;"></span><b>En la mitad de los casos</b>, el proceso se resuelve en <b>{p50} d&#237;as o menos</b>.</div>
@@ -1236,16 +1182,126 @@ if st.session_state.datos_procesados:
                             <div class="tooltip-box">{nota_txt}</div>
                         </div>
                     </div>
-                </div>
-                <script>
-                    function toggle() {{
-                        var card = document.getElementById('card');
-                        card.classList.toggle('open');
-                        // Notificar al parent el nuevo alto para que Streamlit reajuste el iframe
-                        var h = card.scrollHeight + 12;
-                        window.parent.postMessage({{type:'streamlit:setFrameHeight', height:h}}, '*');
-                    }}
-                </script>
-                </body></html>"""
+                </div>"""
 
-                components.html(card_html, height=130, scrolling=False)
+            n_cards = len(variantes_stats)
+            all_cards_html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+            <style>
+                * {{ box-sizing: border-box; }}
+                body {{ margin: 0; padding: 0; font-family: Arial, sans-serif; }}
+                .leyenda {{
+                    display: flex; gap: 10px; flex-wrap: wrap;
+                    margin-bottom: 14px; font-size: 12px;
+                }}
+                .leyenda-item {{
+                    display: flex; align-items: center; gap: 6px;
+                    background: #f8fafc; border: 1px solid #e2e8f0;
+                    border-radius: 6px; padding: 5px 10px;
+                    color: #6b7280;
+                }}
+                .cards {{ display: flex; flex-direction: column; gap: 10px; }}
+                .card {{
+                    background: #F9F9F9;
+                    border: 2px solid #e5e7eb;
+                    border-radius: 10px;
+                    padding: 14px 18px;
+                    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+                    cursor: pointer;
+                    transition: border-color 0.15s;
+                }}
+                .card.open {{ cursor: default; }}
+                .header {{
+                    display: flex; justify-content: space-between;
+                    align-items: flex-start; gap: 12px; margin-bottom: 6px;
+                }}
+                .meta {{
+                    display: flex; align-items: center;
+                    gap: 8px; flex-wrap: wrap; margin-bottom: 4px;
+                }}
+                .badge {{
+                    font-size: 11px; font-weight: bold;
+                    padding: 2px 8px; border-radius: 20px;
+                    background: #fff; border: 1px solid;
+                }}
+                .ncasos {{ font-size: 12px; color: #6b7280; }}
+                .ruta {{ font-size: 12px; color: #9ca3af; font-family: monospace; margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
+                .varname {{ font-weight: bold; font-size: 15px; color: #1f2937; }}
+                .median-num {{ font-size: 24px; font-weight: bold; }}
+                .median-label {{ font-size: 11px; color: #9ca3af; text-align: right; }}
+                .barra {{ position: relative; height: 38px; margin-bottom: 4px; }}
+                .b-fondo {{ position: absolute; top: 20px; left: 0; right: 0; height: 8px; background: #e8ecf0; border-radius: 4px; }}
+                .b-labels {{
+                    display: flex; justify-content: space-between;
+                    font-size: 11px; color: #9ca3af; margin-top: 2px;
+                }}
+                .detail {{ display: none; }}
+                .card.open .detail {{ display: block; }}
+                .narrativa-titulo {{ font-size: 13px; font-weight: bold; color: #374151; margin-bottom: 10px; }}
+                .narrativa {{ font-size: 13px; line-height: 2.0; color: #374151; margin-bottom: 14px; }}
+                .dot {{ display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; margin-right: 8px; }}
+                .nota-wrap {{
+                    background: #f8fafc; border: 1px solid #e2e8f0;
+                    border-radius: 6px; padding: 9px 12px;
+                    font-size: 12px; display: inline-block; position: relative;
+                }}
+                .nota-label {{
+                    font-weight: bold; color: #0369a1;
+                    border-bottom: 1px dotted #0369a1; cursor: help;
+                }}
+                .tooltip-box {{
+                    display: none; position: absolute;
+                    bottom: calc(100% + 8px); left: 0;
+                    background: #1f2937; color: #f9fafb;
+                    border-radius: 8px; padding: 10px 14px;
+                    font-size: 12px; line-height: 1.6; width: 380px;
+                    z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+                    pointer-events: none;
+                }}
+                .nota-wrap:hover .tooltip-box {{ display: block; }}
+                .chevron {{
+                    font-size: 12px; color: #9ca3af;
+                    flex-shrink: 0; margin-top: 4px;
+                    transition: transform 0.2s;
+                    user-select: none;
+                }}
+                .card.open .chevron {{ transform: rotate(180deg); }}
+            </style>
+            </head><body>
+            <div class="leyenda">
+                <div class="leyenda-item">
+                    <div style="width:32px;height:8px;background:#bfdbfe;border-radius:3px;"></div>
+                    80% de los casos (P10&#8211;P90)
+                </div>
+                <div class="leyenda-item">
+                    <div style="width:32px;height:8px;background:#3b82f6;border-radius:3px;"></div>
+                    50% de los casos (P25&#8211;P75)
+                </div>
+                <div class="leyenda-item">
+                    <div style="width:3px;height:16px;background:#1e3a8a;border-radius:2px;"></div>
+                    Duraci&#243;n t&#237;pica (mediana)
+                </div>
+            </div>
+            <div class="cards">
+                {cards_inner}
+            </div>
+            <script>
+                function toggleCard(id) {{
+                    var card = document.getElementById(id);
+                    var isOpen = card.classList.contains('open');
+                    card.classList.toggle('open');
+                    var border = card.getAttribute('data-border');
+                    card.style.borderColor = isOpen ? '#e5e7eb' : border;
+                    resize();
+                }}
+                function resize() {{
+                    var h = document.body.scrollHeight + 20;
+                    window.parent.postMessage({{isStreamlitMessage: true, type: 'streamlit:setFrameHeight', height: h}}, '*');
+                }}
+                // Altura inicial
+                window.addEventListener('load', function() {{ setTimeout(resize, 100); }});
+            </script>
+            </body></html>"""
+
+            # Altura inicial = n tarjetas colapsadas (~130px c/u) + leyenda (~50px)
+            altura_inicial = n_cards * 135 + 60
+            components.html(all_cards_html, height=altura_inicial, scrolling=True)
