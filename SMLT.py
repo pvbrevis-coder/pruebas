@@ -99,24 +99,26 @@ st.markdown(f"""
             border-color: {P_TEAL} !important;
             color: {P_TEAL} !important;
         }}
-        /* ── Navegación lateral ──────────────────────────────────────── */
-        [data-testid="stSidebar"] [data-testid="stRadio"] label {{
-            font-size: 14px !important;
-            padding: 8px 12px !important;
-            border-radius: 6px !important;
-            cursor: pointer !important;
-            display: block !important;
-            color: {P_MID} !important;
-            font-weight: 500 !important;
+        /* ── Tabs fijas ──────────────────────────────────────────────────
+           position:sticky requiere overflow:visible en TODA la cadena
+           entre el scroll-container y el tablist.
+           Cubrimos todos los contenedores posibles de Streamlit. ───── */
+        section[data-testid="stMain"] > div,
+        div[data-testid="stMainBlockContainer"],
+        div[data-testid="block-container"],
+        div[data-testid="stVerticalBlock"],
+        div[data-testid="stTabs"],
+        div[data-testid="stTabs"] > div,
+        div[data-testid="stTabs"] > div > div {{
+            overflow: visible !important;
         }}
-        [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {{
-            background: #f0faf8 !important;
-            color: {P_TEAL} !important;
-        }}
-        [data-testid="stSidebar"] [data-testid="stRadio"] [aria-checked="true"] + label,
-        [data-testid="stSidebar"] [data-testid="stRadio"] input:checked + div label {{
-            color: {P_TEAL} !important;
-            font-weight: 700 !important;
+        [role="tablist"] {{
+            position: sticky !important;
+            top: 44px !important;
+            z-index: 99998 !important;
+            background: white !important;
+            border-bottom: 1px solid {P_BORDER} !important;
+            padding-bottom: 2px !important;
         }}
     </style>
     <div class="fixed-header">
@@ -479,26 +481,22 @@ if st.session_state.datos_procesados:
     periodo_fechas = st.session_state.periodo_fechas
     tiene_est_orden = st.session_state.tiene_est_orden
 
-    st.sidebar.markdown(
-        f"<div style='font-size:11px;color:#9ca3af;margin-bottom:4px;font-family:Arial;'>"
-        f"{periodo_fechas}</div>",
-        unsafe_allow_html=True
-    )
-    st.sidebar.markdown("---")
-    pestaña = st.sidebar.radio(
-        "Navegación",
-        ["Mapa de Proceso", "Análisis Estadístico", "Diagnóstico", "Pronóstico por Variante"],
-        label_visibility="collapsed"
-    )
-    st.sidebar.markdown("---")
     if st.sidebar.button("Cargar nuevos archivos"):
         st.session_state.datos_procesados = False
         st.rerun()
 
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "Mapa de Proceso",
+        "Análisis Estadístico",
+        "Diagnóstico",
+        "Pronóstico por Variante"
+    ])
+
+    # Inyectar fixes de JS: expander _arrow_right y tabs sticky
     # ──────────────────────────────────────────────
-    # SECCIÓN 1: MAPA DE PROCESO
+    # PESTAÑA 1: MAPA DE PROCESO
     # ──────────────────────────────────────────────
-    if pestaña == "Mapa de Proceso":
+    with tab1:
         # Barra de controles horizontal compacta
         ctrl1, ctrl2, ctrl3 = st.columns([2, 2, 6])
         with ctrl1:
@@ -777,10 +775,9 @@ if st.session_state.datos_procesados:
                 """, unsafe_allow_html=True)
 
     # ──────────────────────────────────────────────
+    # PESTAÑA 2: ANÁLISIS ESTADÍSTICO
     # ──────────────────────────────────────────────
-    # SECCIÓN 2: ANÁLISIS ESTADÍSTICO
-    # ──────────────────────────────────────────────
-    elif pestaña == "Análisis Estadístico":
+    with tab2:
         st.subheader("Análisis Estadístico de Tiempos")
         st.caption(
             f"Distribución de duraciones históricas por recurso, etapa y variante. "
@@ -967,10 +964,9 @@ if st.session_state.datos_procesados:
             """, unsafe_allow_html=True)
 
     # ──────────────────────────────────────────────
+    # PESTAÑA 3: DIAGNÓSTICO
     # ──────────────────────────────────────────────
-    # SECCIÓN 3: DIAGNÓSTICO
-    # ──────────────────────────────────────────────
-    elif pestaña == "Diagnóstico":
+    with tab3:
         st.markdown("### Diagnóstico")
         st.caption("Diagnóstico at-a-glance para la toma de decisiones. Basado en el universo completo de casos cargados.")
 
@@ -1198,10 +1194,9 @@ if st.session_state.datos_procesados:
             st.info(f"No hay variantes con al menos {N_MIN_RESUMEN} casos para generar pronósticos.")
 
     # ──────────────────────────────────────────────
+    # PESTAÑA 4: PRONÓSTICO POR VARIANTE
     # ──────────────────────────────────────────────
-    # SECCIÓN 4: PRONÓSTICO POR VARIANTE
-    # ──────────────────────────────────────────────
-    elif pestaña == "Pronóstico por Variante":
+    with tab4:
         st.subheader("Pronóstico por variante de proceso")
         st.caption(
             "Estimaciones basadas en el historial de casos, asumiendo condiciones "
