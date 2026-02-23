@@ -1153,8 +1153,10 @@ if st.session_state.datos_procesados:
                 card_html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
                 <style>
                     body{{margin:0;padding:4px 0;font-family:Arial,sans-serif;}}
-                    .card{{background:#F9F9F9;border:2px solid {cfg['border']};border-radius:10px;
-                           padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);}}
+                    .card{{background:#F9F9F9;border:2px solid #e5e7eb;border-radius:10px;
+                           padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,0.06);
+                           cursor:pointer;transition:border-color 0.15s;}}
+                    .card.open{{border-color:{cfg['border']};cursor:default;}}
                     .header{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:6px;}}
                     .meta{{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;}}
                     .badge{{font-size:11px;font-weight:bold;padding:2px 8px;border-radius:20px;
@@ -1164,13 +1166,15 @@ if st.session_state.datos_procesados:
                     .varname{{font-weight:bold;font-size:15px;color:#1f2937;}}
                     .median-num{{font-size:24px;font-weight:bold;color:{cfg['border']};}}
                     .median-label{{font-size:11px;color:#9ca3af;text-align:right;}}
-                    .barra{{position:relative;height:28px;margin-bottom:4px;}}
-                    .b-fondo{{position:absolute;top:10px;left:0;right:0;height:8px;background:#e8ecf0;border-radius:4px;}}
-                    .b-80{{position:absolute;top:10px;left:{pb10:.1f}%;width:{w80:.1f}%;height:8px;background:#bfdbfe;border-radius:4px;}}
-                    .b-50{{position:absolute;top:10px;left:{pb25:.1f}%;width:{w50:.1f}%;height:8px;background:#3b82f6;border-radius:4px;}}
-                    .b-med{{position:absolute;top:6px;left:{pb50:.1f}%;transform:translateX(-50%);width:3px;height:16px;background:#1e3a8a;border-radius:2px;}}
+                    .barra{{position:relative;height:38px;margin-bottom:4px;}}
+                    .b-fondo{{position:absolute;top:20px;left:0;right:0;height:8px;background:#e8ecf0;border-radius:4px;}}
+                    .b-80{{position:absolute;top:20px;left:{pb10:.1f}%;width:{w80:.1f}%;height:8px;background:#bfdbfe;border-radius:4px;}}
+                    .b-50{{position:absolute;top:20px;left:{pb25:.1f}%;width:{w50:.1f}%;height:8px;background:#3b82f6;border-radius:4px;}}
+                    .b-med{{position:absolute;top:16px;left:{pb50:.1f}%;transform:translateX(-50%);width:3px;height:16px;background:#1e3a8a;border-radius:2px;}}
                     .b-medlabel{{position:absolute;top:0;left:{pb50:.1f}%;transform:translateX(-50%);font-size:11px;color:#1e3a8a;font-weight:bold;white-space:nowrap;}}
                     .b-labels{{display:flex;justify-content:space-between;font-size:11px;color:#9ca3af;margin-top:2px;}}
+                    .detail{{display:none;}}
+                    .card.open .detail{{display:block;}}
                     .separator{{border:none;border-top:1px solid {cfg['border']}44;margin:12px 0;}}
                     .narrativa-titulo{{font-size:13px;font-weight:bold;color:#374151;margin-bottom:10px;}}
                     .narrativa{{font-size:13px;line-height:2.0;color:#374151;margin-bottom:14px;}}
@@ -1183,8 +1187,10 @@ if st.session_state.datos_procesados:
                                   font-size:12px;line-height:1.6;width:380px;z-index:9999;
                                   box-shadow:0 4px 16px rgba(0,0,0,0.25);pointer-events:none;}}
                     .nota-wrap:hover .tooltip-box{{display:block;}}
+                    .chevron{{font-size:12px;color:#9ca3af;flex-shrink:0;margin-top:4px;transition:transform 0.2s;}}
+                    .card.open .chevron{{transform:rotate(180deg);}}
                 </style></head><body>
-                <div class="card">
+                <div class="card" id="card" onclick="toggle()">
                     <div class="header">
                         <div style="flex:1;">
                             <div class="meta">
@@ -1194,9 +1200,12 @@ if st.session_state.datos_procesados:
                             </div>
                             <div class="ruta">{ruta_txt}</div>
                         </div>
-                        <div style="text-align:right;flex-shrink:0;">
-                            <div class="median-num">{p50}<span style="font-size:13px;color:#6b7280;"> d&#237;as</span></div>
-                            <div class="median-label">duraci&#243;n t&#237;pica</div>
+                        <div style="display:flex;align-items:flex-start;gap:10px;flex-shrink:0;">
+                            <div style="text-align:right;">
+                                <div class="median-num">{p50}<span style="font-size:13px;color:#6b7280;"> d&#237;as</span></div>
+                                <div class="median-label">duraci&#243;n t&#237;pica</div>
+                            </div>
+                            <div class="chevron">&#9660;</div>
                         </div>
                     </div>
                     <div class="barra">
@@ -1214,18 +1223,29 @@ if st.session_state.datos_procesados:
                         </span>
                         <span>P90: {p90}d</span>
                     </div>
-                    <hr class="separator">
-                    <div class="narrativa-titulo">Estimaci&#243;n para un caso futuro de este tipo</div>
-                    <div class="narrativa">
-                        <div><span class="dot" style="background:#22c55e;"></span><b>En la mitad de los casos</b>, el proceso se resuelve en <b>{p50} d&#237;as o menos</b>.</div>
-                        <div><span class="dot" style="background:#3b82f6;"></span><b>8 de cada 10 casos</b> se resuelven entre <b>{p10} y {p90} d&#237;as</b>.</div>
-                        <div><span class="dot" style="background:#f43f5e;"></span><b>1 de cada 10 casos</b> supera los <b style="color:#dc2626;">{p90} d&#237;as</b>.</div>
-                    </div>
-                    <div class="nota-wrap">
-                        <span class="nota-label">Nota metodol&#243;gica</span>
-                        <div class="tooltip-box">{nota_txt}</div>
+                    <div class="detail" onclick="event.stopPropagation()">
+                        <hr class="separator">
+                        <div class="narrativa-titulo">Estimaci&#243;n para un caso futuro de este tipo</div>
+                        <div class="narrativa">
+                            <div><span class="dot" style="background:#22c55e;"></span><b>En la mitad de los casos</b>, el proceso se resuelve en <b>{p50} d&#237;as o menos</b>.</div>
+                            <div><span class="dot" style="background:#3b82f6;"></span><b>8 de cada 10 casos</b> se resuelven entre <b>{p10} y {p90} d&#237;as</b>.</div>
+                            <div><span class="dot" style="background:#f43f5e;"></span><b>1 de cada 10 casos</b> supera los <b style="color:#dc2626;">{p90} d&#237;as</b>.</div>
+                        </div>
+                        <div class="nota-wrap">
+                            <span class="nota-label">Nota metodol&#243;gica</span>
+                            <div class="tooltip-box">{nota_txt}</div>
+                        </div>
                     </div>
                 </div>
+                <script>
+                    function toggle() {{
+                        var card = document.getElementById('card');
+                        card.classList.toggle('open');
+                        // Notificar al parent el nuevo alto para que Streamlit reajuste el iframe
+                        var h = card.scrollHeight + 12;
+                        window.parent.postMessage({{type:'streamlit:setFrameHeight', height:h}}, '*');
+                    }}
+                </script>
                 </body></html>"""
 
-                components.html(card_html, height=320, scrolling=False)
+                components.html(card_html, height=130, scrolling=False)
