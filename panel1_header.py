@@ -1,9 +1,8 @@
 import streamlit as st
 
 P_TEAL   = "#84DCC6"
-P_DARK   = "#1f2937"
-P_BORDER = "#e5e7eb"
 
+# Lista de pestañas necesarias para que panel2_tabs.py pueda importarlas
 TABS = [
     "Mapa de Proceso",
     "Análisis Estadístico",
@@ -11,18 +10,18 @@ TABS = [
     "Pronóstico por Variante",
 ]
 
-HEADER_H = 42   # altura de la barra de título (px)
-TABBAR_H = 42   # altura de la barra de pestañas (px)
-TOTAL_H  = HEADER_H + TABBAR_H  # altura total del bloque fijo
-
+# Variable de altura por si alguna versión anterior de panel2_tabs la requiere
+TOTAL_H = 84 
 
 def render():
     st.markdown(f"""
     <style>
         .fixed-header {{
             position: fixed; top: 0; left: 0; width: 100%;
-            background: #ffffff; padding: 12px 30px;
-            z-index: 999999; border-bottom: 2px solid {P_TEAL};
+            background-color: #ffffff !important; /* BLANCO SÓLIDO (DÍA) */
+            padding: 12px 30px;
+            z-index: 9999999 !important; /* Z-index extremo para evitar superposición */
+            border-bottom: 2px solid {P_TEAL};
             display: flex; align-items: center; gap: 12px;
         }}
         .header-dot {{
@@ -31,7 +30,18 @@ def render():
         }}
         .header-title {{
             margin: 0; font-size: 15px !important; font-weight: bold;
-            color: {P_DARK}; font-family: Arial, sans-serif !important;
+            color: #1f2937 !important;
+            font-family: Arial, sans-serif !important;
+        }}
+        
+        /* 🌙 MODO OSCURO AUTOMÁTICO */
+        @media (prefers-color-scheme: dark) {{
+            .fixed-header {{
+                background-color: #0e1117 !important; /* GRIS OSCURO SÓLIDO (NOCHE) */
+            }}
+            .header-title {{
+                color: #fafafa !important;
+            }}
         }}
     </style>
     <div class="fixed-header">
